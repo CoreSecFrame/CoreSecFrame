@@ -1,0 +1,7 @@
+# Dependencias básicas del framework
+psutil>=5.9.0      # Para monitoreo del sistema
+cmd2>=2.4.0        # Mejoras para la línea de comandos
+colorama>=0.4.6    # Para colores en Windows
+prompt_toolkit>=3.0.0  # Para mejor manejo de input
+paramiko
+
