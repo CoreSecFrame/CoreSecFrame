@@ -141,25 +141,20 @@ class ToolModule(ABC):
             "dependencies": self.dependencies
         }
 
-    def execute_command(self, command: str, capture_output: bool = False) -> Optional[str]:
-        """Ejecuta un comando y opcionalmente captura su salida"""
+    def _run_command(self, cmd: str) -> bool:
+        """Ejecuta un comando y retorna si fue exitoso"""
         try:
-            if capture_output:
-                result = subprocess.run(
-                    command,
-                    shell=True,
-                    text=True,
-                    capture_output=True,
-                    check=True
-                )
-                return result.stdout
-            else:
-                subprocess.run(command, shell=True, check=True)
-                return None
-        except subprocess.SubprocessError as e:
-            print(f"Error ejecutando comando '{command}': {e}")
-            return None
-        except KeyboardInterrupt:
-            print("\nOperación cancelada por el usuario")
-            return None
-
+            result = subprocess.run(
+                cmd, 
+                shell=True, 
+                check=True, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                text=True
+            )
+            print(result.stdout)
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Error ejecutando {cmd}")
+            print(f"Salida de error: {e.stderr}")
+            return False
