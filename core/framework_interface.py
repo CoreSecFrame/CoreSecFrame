@@ -95,24 +95,6 @@ class FrameworkInterface(cmd.Cmd):
                 }
         return None, None
 
-    def _run_command(self, cmd: str) -> bool:
-        """Ejecuta un comando y retorna si fue exitoso"""
-        try:
-            result = subprocess.run(
-                cmd, 
-                shell=True, 
-                check=True, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
-                text=True
-            )
-            print(result.stdout)
-            return True
-        except subprocess.CalledProcessError as e:
-            print(f"Error ejecutando {cmd}")
-            print(f"Salida de error: {e.stderr}")
-            return False
-
     def _execute_package_commands(self, tool_name: str, command_type: str) -> None:
         """Ejecuta comandos de gestión de paquetes"""
         module = self.modules.get(tool_name.lower())
