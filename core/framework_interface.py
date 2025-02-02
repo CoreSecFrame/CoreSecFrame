@@ -657,6 +657,16 @@ class FrameworkInterface(cmd.Cmd):
             elif key == 'p' and page > 1:
                 self._display_categories_table(categories, page - 1, items_per_page)
 
+    def _update_installation_status(self, tools: list) -> None:
+        """
+        Actualiza el estado de instalación de todas las herramientas
+        
+        Args:
+            tools: Lista de herramientas a actualizar
+        """
+        for tool in tools:
+            tool.check_installation()
+
     def do_show(self, arg: str) -> None:
         """
         Muestra categorías o herramientas de una categoría específica
@@ -667,6 +677,9 @@ class FrameworkInterface(cmd.Cmd):
             return
             
         args = arg.split()
+        
+        # Actualizar estado de instalación de todos los módulos
+        self._update_installation_status(self.modules.values())
         
         # Obtener todas las categorías disponibles
         all_categories = {tool._get_category().lower() for tool in self.modules.values()}
@@ -706,6 +719,9 @@ class FrameworkInterface(cmd.Cmd):
             print(f"{Colors.FAIL}[!] Error: Correct usage: search <term>{Colors.ENDC}")
             return
             
+        # Actualizar estado de instalación de todos los módulos
+        self._update_installation_status(self.modules.values())
+        
         search_term = arg.lower()
         
         # Buscar coincidencias

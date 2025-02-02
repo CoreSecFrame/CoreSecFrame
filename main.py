@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 from getpass import getpass
 from core.colors import Colors
+from core.terminal_management import TerminalManager
 
 def signal_handler(sig, frame):
     """Manejador de señal para Ctrl+C"""

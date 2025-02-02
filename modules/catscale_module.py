@@ -228,7 +228,7 @@ class CatScaleModule(ToolModule):
         print("  --key <KEY>           Remote key path (optional)")
         print("  --password (press enter and write your password)")
         
-        options = input("\n{Colors.BOLD}Insert options: {Colors.ENDC}").split()
+        options = input(f"\n{Colors.BOLD}Insert options: {Colors.ENDC}").split()
         
         # Verificar si es una ejecución remota
         if "--remote" in options:
