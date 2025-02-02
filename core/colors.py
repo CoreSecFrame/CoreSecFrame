@@ -15,7 +15,7 @@ class Colors:
         color_codes = {
             # Colores principales
             'PRIMARY': '\033[38;5;87m',    # Azul claro brillante
-            'SECONDARY': '\033[38;5;141m',  # Púrpura suave
+            'SECONDARY': '\033[38;5;141m', # Púrpura suave
             'ACCENT': '\033[38;5;219m',    # Rosa suave
             
             # Colores de estado
@@ -26,7 +26,7 @@ class Colors:
             # Colores de texto
             'TEXT': '\033[38;5;252m',      # Blanco suave
             'SUBTLE': '\033[38;5;242m',    # Gris oscuro
-            'HIGHLIGHT': '\033[38;5;159m',  # Azul muy claro
+            'HIGHLIGHT': '\033[38;5;159m', # Azul muy claro
             
             # Efectos
             'BOLD': '\033[1m',
@@ -35,13 +35,12 @@ class Colors:
             'UNDERLINE': '\033[4m',
             'BLINK': '\033[5m',
             'ENDC': '\033[0m',
-
+            
             # Compatibilidad con nombres antiguos
             'HEADER': '\033[95m',
             'BLUE': '\033[94m',
             'CYAN': '\033[96m',
             'GREEN': '\033[92m',
-            'WARNING': '\033[93m',
             'FAIL': '\033[91m',
             'OKGREEN': '\033[92m'
         }

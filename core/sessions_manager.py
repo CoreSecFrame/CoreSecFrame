@@ -8,9 +8,10 @@ from .colors import Colors
 class Session:
     """Representa una sesión individual del framework"""
     
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, module_name: str = None):
         self.session_id = session_id
         self.name = session_id
+        self.module_name = module_name  # Añadimos el nombre del módulo
         self.start_time = datetime.now()
         self.active = True
         self.last_command = None
@@ -70,7 +71,8 @@ class SessionManager:
         self.inactive_sessions: Set[int] = set()
 
     def create_session(self, name: str, tool=None) -> Session:
-        """Crea una nueva sesión
+        """
+        Crea una nueva sesión
         
         Args:
             name: Nombre de la sesión
@@ -81,9 +83,13 @@ class SessionManager:
         """
         self.check_sessions_initialized()
         self.session_count += 1
-        session = Session(str(self.session_count))
+        
+        # Obtener el nombre del módulo si tool está presente
+        module_name = tool._get_name() if tool else name
+        
+        session = Session(str(self.session_count), module_name)
         self.sessions[self.session_count] = session
-        print(f"{Colors.GREEN}[+] Nueva sesión creada: {self.session_count}{Colors.ENDC}")
+        print(f"{Colors.GREEN}[+] Nueva sesión creada: {self.session_count} ({module_name}){Colors.ENDC}")
         return session
 
     def check_sessions_initialized(self) -> bool:
@@ -127,30 +133,42 @@ class SessionManager:
         
         return True
 
-    def list_sessions(self) -> None:
-        """Lista todas las sesiones activas"""
+    def list_sessions(self):
+        """
+        Lista las sesiones activas en formato de tabla
+        """
         self.check_sessions_initialized()
-        
+        # Encabezado de la tabla
+        print(f"\n╔{'═' * 14}╦{'═' * 20}╦{'═' * 15}╦{'═' * 14}╗")
+        print(f"║ {'ID':12} ║ {'Herramienta':18} ║ {'Tipo':13} ║ {'Estado':12} ║")
+        print(f"╠{'═' * 14}╬{'═' * 20}╬{'═' * 15}╬{'═' * 14}╣")
+
         if not self.sessions:
-            print(f"\n{Colors.WARNING}[!] No hay sesiones registradas{Colors.ENDC}")
+            print(f"║ {Colors.SUBTLE}No hay sesiones activas{Colors.ENDC}".ljust(68) + "              ║")
+            print(f"╚{'═' * 14}╩{'═' * 20}╩{'═' * 15}╩{'═' * 14}╝")
             return
 
-        active_sessions = any(session.active for session in self.sessions.values())
-        if not active_sessions:
-            print(f"\n{Colors.WARNING}[!] No hay sesiones activas en tmux{Colors.ENDC}")
+        for session_id, session in self.sessions.items():
+            
+            # Truncar valores largos
+            id_str = str(session_id)[:12].ljust(12)
+            # Usar module_name en lugar de host
+            module_name = (session.module_name if hasattr(session, 'module_name') and session.module_name else "N/A")[:18].ljust(18)
+            # Determinar el tipo (puede ser Guiado o Directo)
+            tipo = (session.last_command if session.last_command else "N/A")[:13].ljust(13)
+            # Estado basado en active
+            status = ("ACTIVA" if session.active else "INACTIVA")[:12].ljust(12)
+            
+            # Colorear estado
+            if session.active:
+                status = f"{Colors.GREEN}{status}{Colors.ENDC}"
+            else:
+                status = f"{Colors.FAIL}{status}{Colors.ENDC}"
 
-        print(f"\n{Colors.CYAN}[*] Lista de sesiones:{Colors.ENDC}")
-        for sid, session in self.sessions.items():
-            status = f"{Colors.GREEN}ACTIVA{Colors.ENDC}" if session.active else f"{Colors.FAIL}INACTIVA{Colors.ENDC}"
-            print(f"\n{Colors.BOLD}Sesión {sid}:{Colors.ENDC}")
-            print(f"  Nombre: {session.name}")
-            print(f"  Estado: {status}")
-            print(f"  Duración: {session.get_duration()}")
-            print(f"  Inicio: {session.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            if session.last_command:
-                print(f"  Último comando: {session.last_command}")
-            if session.log_manager.output_file:
-                print(f"  Logging: {Colors.GREEN}Activo{Colors.ENDC}")
+            print(f"║ {id_str} ║ {module_name} ║ {tipo} ║ {status} ║")
+
+        # Pie de la tabla
+        print(f"╚{'═' * 14}╩{'═' * 20}╩{'═' * 15}╩{'═' * 14}╝")
 
     def clear_sessions(self) -> None:
         """Limpia las sesiones inactivas"""

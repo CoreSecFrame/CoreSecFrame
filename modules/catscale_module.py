@@ -8,12 +8,11 @@ import getpass
 
 class CatScaleModule(ToolModule):
     def __init__(self):
+        self.repo_url = "https://github.com/sPROFFEs/LinuxCatScale"
+        self.base_script_path = Path(__file__).parent.parent / "modules" / "scripts"
         super().__init__()
-        
-        # Configurar la ruta del script
-        script_path = Path(__file__).parent.parent / "modules" / "scripts" / "catscale.sh"
-        self.set_custom_install_path(str(script_path))
 
+        
     def _get_name(self):
         return "catscale"
 
@@ -25,6 +24,10 @@ class CatScaleModule(ToolModule):
 
     def _get_dependencies(self):
         return ["tar", "sha1sum", "find", "grep"]
+
+    def _get_script_path(self) -> str:
+        """Retorna la ruta al script bash"""
+        return str(Path(__file__).parent.parent / "modules" / "scripts" / "LinuxCatScale" / "Cat-Scale.sh")
 
     def get_help(self) -> dict:
         """
@@ -96,88 +99,88 @@ class CatScaleModule(ToolModule):
         self._custom_install_path = str(script_path)
         return True
 
-    def get_package_install(self) -> dict:
+
+    def _get_install_command(self, pkg_manager: str) -> dict:
         """Diccionario de comandos de instalación por gestor de paquetes"""
-        base_script_path = Path(__file__).parent.parent / "modules" / "scripts"
-        repo_url = "https://github.com/sPROFFEs/LinuxCatScale.git"
-        
-        return {
+        commands = {
             'apt': [
                 "sudo apt-get update",
                 "sudo apt-get install -y coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ],
             'yum': [
                 "sudo yum update -y",
                 "sudo yum install -y coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ],
             'dnf': [
-                "sudo dnf update -y", 
+                "sudo dnf update -y",
                 "sudo dnf install -y coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ],
             'pacman': [
                 "sudo pacman -Sy",
                 "sudo pacman -S coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ]
         }
+        return commands.get(pkg_manager, {})
 
-    def get_package_update(self) -> dict:
+    def _get_update_command(self, pkg_manager: str) -> dict:
         """Diccionario de comandos de actualización por gestor de paquetes"""
-        return {
+        commands = {
             'apt': [
                 "sudo apt-get update",
                 "sudo apt-get install -y coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"rm -rf {base_script_path}/LinuxCatScale",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ],
             'yum': [
                 "sudo yum update -y",
                 "sudo yum install -y coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"rm -rf {base_script_path}/LinuxCatScale",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ],
             'dnf': [
-                "sudo dnf update -y", 
+                "sudo dnf update -y",
                 "sudo dnf install -y coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"rm -rf {base_script_path}/LinuxCatScale",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ],
             'pacman': [
                 "sudo pacman -Sy",
                 "sudo pacman -S coreutils findutils grep git rename",
-                f"mkdir -p {base_script_path}",
-                f"rm -rf {base_script_path}/LinuxCatScale",
-                f"cd {base_script_path} && git clone {repo_url}"
+                f"mkdir -p {self.base_script_path}",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
+                f"cd {self.base_script_path} && git clone {self.repo_url}"
             ]
         }
+        return commands.get(pkg_manager, {})
 
-    def get_package_remove(self) -> dict:
+    def _get_uninstall_command(self, pkg_manager: str) -> dict:
         """Diccionario de comandos de desinstalación por gestor de paquetes"""
-        base_script_path = Path(__file__).parent.parent / "modules" / "scripts"
-        return {
+        commands = {
             'apt': [
-                f"rm -rf {base_script_path}/LinuxCatScale",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
             ],
             'yum': [
-                f"rm -rf {base_script_path}/LinuxCatScale",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
             ],
             'dnf': [
-                f"rm -rf {base_script_path}/LinuxCatScale",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
             ],
             'pacman': [
-                f"rm -rf {base_script_path}/LinuxCatScale",
+                f"rm -rf {self.base_script_path}/LinuxCatScale",
             ]
         }
+        return commands.get(pkg_manager, {})
 
     def run_guided(self) -> None:
         """Ejecuta la herramienta en modo guiado"""
@@ -212,17 +215,17 @@ class CatScaleModule(ToolModule):
 
     def run_direct(self) -> None:
         """Ejecuta la herramienta en modo directo"""
-        print("\nOpciones disponibles:")
-        print("  -d OUTDIR           Directorio de salida")
-        print("  -o OUTROOT          Directorio raíz de salida")
-        print("  -p PREFIX           Prefijo para el archivo de salida")
-        print("\nPara ejecución remota, usar:")
-        print("  --remote HOST       Host remoto")
-        print("  --user USER         Usuario SSH")
-        print("  --key KEY           Ruta a la clave SSH (opcional)")
-        print("  --password          Usar autenticación por contraseña")
+        print(f"\n{Colors.CYAN}[*] ATENTION: This commands are only avaiable on LOCAL EXECUTION{Colors.ENDC}")
+        print("  -d OUTDIR           Output directory")
+        print("  -o OUTROOT          Output root directory")
+        print("  -p PREFIX           Output file prefix")
+        print(f"\n{Colors.CYAN}[*] ATENTION: This commands are only avaiable on REMOTE EXECUTION{Colors.ENDC}")
+        print("  --remote <HOST>       Remote host")
+        print("  --user <USER>         Remote user")
+        print("  --key <KEY>           Remote key path (optional)")
+        print("  --password (press enter and write your password)")
         
-        options = input("\nIngresa las opciones deseadas: ").split()
+        options = input("\n{Colors.BOLD}Insert options: {Colors.ENDC}").split()
         
         # Verificar si es una ejecución remota
         if "--remote" in options:
@@ -230,39 +233,39 @@ class CatScaleModule(ToolModule):
         else:
             self._execute_script(options)
 
-    def get_script_path(self) -> str:
-        """Retorna la ruta al script bash"""
-        return str(Path(__file__).parent.parent / "modules" / "scripts" / "LinuxCatScale" / "Cat-Scale.sh")
-
     def _execute_script(self, options: list) -> None:
         """Ejecuta el script localmente con las opciones especificadas"""
-        try:
-            script_path = self.get_script_path()
-            cmd = ["sudo", script_path] + options
-            
-            print("\nEjecutando Cat-Scale localmente...")
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                bufsize=1
-            )
-            
-            while True:
-                output = process.stdout.readline()
-                if output == '' and process.poll() is not None:
-                    break
-                if output:
-                    print(output.strip())
+        script_path = self._get_script_path()
+        cmd = ["sudo", script_path] + options
+        
+        print("\nEjecutando Cat-Scale localmente...")
+        if self.run_script(cmd):  # Usar el método heredado de GetModule
+            # Si la ejecución fue exitosa, obtener el archivo generado
+            try:
+                # Buscar prefijo personalizado
+                prefix = None
+                for i in range(len(options)):
+                    if options[i] == '-p' and i + 1 < len(options):
+                        prefix = options[i + 1]
+                        break
+                
+                # Buscar el archivo generado en el directorio actual
+                if prefix:
+                    pattern = f"{prefix}*.tar.gz"
+                else:
+                    pattern = "catscale_*.tar.gz"
                     
-            if process.returncode != 0:
-                stderr = process.stderr.read()
-                if stderr:
-                    print(f"Error: {stderr}")
-                    
-        except Exception as e:
-            print(f"Error al ejecutar el script: {e}")
+                matches = list(Path(".").glob(pattern))
+                if matches:
+                    # Ordenar por fecha de modificación y tomar el más reciente
+                    latest_file = max(matches, key=lambda p: p.stat().st_mtime)
+                    print(f"\nArchivo generado: {latest_file}")
+                    # Manejar la descompresión
+                    self._handle_decompression_script(str(latest_file))
+                else:
+                    print("No se encontró el archivo generado.")
+            except Exception as e:
+                print(f"Error al manejar el archivo generado: {e}")
 
     def _try_ssh_connect(self, remote_host: str, remote_user: str, use_password: bool = False, key_path: str = None, max_attempts: int = 3) -> tuple:
         """Intenta conectar por SSH con reintentos de contraseña
@@ -344,148 +347,151 @@ class CatScaleModule(ToolModule):
 
     def _execute_remote(self, options: list) -> None:
         """Ejecuta el script en un sistema remoto vía SSH"""
-        ssh = None
-        remote_script = "/tmp/Cat-Scale.sh"
-        try:
-            # Extraer opciones de SSH
-            remote_host = None
-            remote_user = None
-            key_path = None
-            use_password = False
-            
-            # Procesar opciones de línea de comandos
-            i = 0
-            while i < len(options):
-                if options[i] == "--remote":
-                    remote_host = options[i + 1]
-                    options.pop(i)
-                    options.pop(i)
-                elif options[i] == "--user":
-                    remote_user = options[i + 1]
-                    options.pop(i)
-                    options.pop(i)
-                elif options[i] == "--key":
-                    key_path = options[i + 1]
-                    options.pop(i)
-                    options.pop(i)
-                elif options[i] == "--password":
-                    use_password = True
-                    options.pop(i)
-                else:
-                    i += 1
-            
-            if not remote_host or not remote_user:
-                print("Error: Se requiere especificar host remoto y usuario")
-                return
+        def remote_execution():
+            ssh = None
+            remote_script = "/tmp/Cat-Scale.sh"
+            try:
+                # Extraer opciones de SSH
+                remote_host = None
+                remote_user = None
+                key_path = None
+                use_password = False
                 
-            # Intentar establecer la conexión SSH y obtener contraseña sudo
-            ssh, sudo_password = self._try_ssh_connect(remote_host, remote_user, use_password, key_path)
-            if not ssh or not sudo_password:
-                print("No se pudo establecer la conexión. Abortando.")
-                return
-            
-            # Transferir el script y archivos adicionales
-            script_path = Path(self.get_script_path())
-            repo_path = script_path.parent
+                # Procesar opciones de línea de comandos
+                i = 0
+                while i < len(options):
+                    if options[i] == "--remote":
+                        remote_host = options[i + 1]
+                        options.pop(i)
+                        options.pop(i)
+                    elif options[i] == "--user":
+                        remote_user = options[i + 1]
+                        options.pop(i)
+                        options.pop(i)
+                    elif options[i] == "--key":
+                        key_path = options[i + 1]
+                        options.pop(i)
+                        options.pop(i)
+                    elif options[i] == "--password":
+                        use_password = True
+                        options.pop(i)
+                    else:
+                        i += 1
+                
+                if not remote_host or not remote_user:
+                    print("Error: Se requiere especificar host remoto y usuario")
+                    return
+                    
+                # Intentar establecer la conexión SSH y obtener contraseña sudo
+                ssh, sudo_password = self._try_ssh_connect(remote_host, remote_user, use_password, key_path)
+                if not ssh or not sudo_password:
+                    print("No se pudo establecer la conexión. Abortando.")
+                    return
+                
+                # Transferir el script y archivos adicionales
+                script_path = Path(self._get_script_path())
+                repo_path = script_path.parent
 
-            sftp = ssh.open_sftp()
-            # Transferir el script principal
-            sftp.put(str(script_path), remote_script)
-            sftp.chmod(remote_script, 0o755)
-            # Transferir archivos adicionales
-            sftp.put(str(repo_path / 'patterns'), '/tmp/patterns')
-            sftp.put(str(repo_path / 'Cat-Scale-logstash.conf'), '/tmp/Cat-Scale-logstash.conf')
-            
-            # Construir y ejecutar el comando remoto con sudo
-            cmd = f"echo '{sudo_password}' | sudo -S {remote_script} {' '.join(options)}"
-            print(f"\nEjecutando Cat-Scale en {remote_host}...")
-            
-            # Crear un canal SSH y solicitar un pseudo-terminal
-            channel = ssh.get_transport().open_session()
-            channel.get_pty()
-            channel.exec_command(cmd)
-            
-            # Capturar toda la salida
-            output_buffer = []
-            while True:
-                if channel.recv_ready():
-                    data = channel.recv(4096).decode('utf-8')
-                    print(data, end='')  # Imprimir la salida en tiempo real
-                    output_buffer.append(data)
-                if channel.exit_status_ready() and not channel.recv_ready():
-                    break
-            
-            # Obtener errores si los hay
-            stderr_output = ""
-            while channel.recv_stderr_ready():
-                stderr_data = channel.recv_stderr(4096).decode('utf-8')
-                stderr_output += stderr_data
-            
-            # Obtener el nombre del archivo generado
-            output_text = ''.join(output_buffer)
-            # Buscar prefijo personalizado
-            prefix = None
-            for i in range(len(options)):
-                if options[i] == '-p' and i + 1 < len(options):
-                    prefix = options[i + 1]
-                    break
-            
-            remote_file = self._get_remote_file_path(output_text, prefix)
-            
-            if remote_file:
-                print("\nEl script ha generado el archivo:", remote_file)
-                default_path = os.path.join(os.getcwd(), "forensics", remote_file)
-                local_path = input(f"Ingrese la ruta donde desea guardar el archivo [{default_path}]: ").strip()
+                sftp = ssh.open_sftp()
+                # Transferir el script principal
+                sftp.put(str(script_path), remote_script)
+                sftp.chmod(remote_script, 0o755)
+                # Transferir archivos adicionales
+                sftp.put(str(repo_path / 'patterns'), '/tmp/patterns')
+                sftp.put(str(repo_path / 'Cat-Scale-logstash.conf'), '/tmp/Cat-Scale-logstash.conf')
                 
-                if not local_path:
-                    local_path = default_path
+                # Construir y ejecutar el comando remoto con sudo
+                cmd = f"echo '{sudo_password}' | sudo -S {remote_script} {' '.join(options)}"
+                print(f"\nEjecutando Cat-Scale en {remote_host}...")
                 
-                if self._download_remote_file(ssh, remote_file, local_path):
-                    print(f"Archivo guardado en: {local_path}")
+                # Crear un canal SSH y solicitar un pseudo-terminal
+                channel = ssh.get_transport().open_session()
+                channel.get_pty()
+                channel.exec_command(cmd)
+                
+                # Capturar toda la salida
+                output_buffer = []
+                while True:
+                    if channel.recv_ready():
+                        data = channel.recv(4096).decode('utf-8')
+                        print(data, end='')  # Imprimir la salida en tiempo real
+                        output_buffer.append(data)
+                    if channel.exit_status_ready() and not channel.recv_ready():
+                        break
+                
+                # Obtener errores si los hay
+                stderr_output = ""
+                while channel.recv_stderr_ready():
+                    stderr_data = channel.recv_stderr(4096).decode('utf-8')
+                    stderr_output += stderr_data
+                
+                # Obtener el nombre del archivo generado
+                output_text = ''.join(output_buffer)
+                # Buscar prefijo personalizado
+                prefix = None
+                for i in range(len(options)):
+                    if options[i] == '-p' and i + 1 < len(options):
+                        prefix = options[i + 1]
+                        break
+                
+                remote_file = self._get_remote_file_path(output_text, prefix)
+                
+                if remote_file:
+                    print("\nEl script ha generado el archivo:", remote_file)
+                    default_path = os.path.join(os.getcwd(), "forensics", remote_file)
+                    local_path = input(f"Ingrese la ruta donde desea guardar el archivo [{default_path}]: ").strip()
                     
-                    # Eliminar archivo generado y archivos temporales
-                    print("Limpiando archivos temporales...")
-                    cleanup_cmd = f"echo '{sudo_password}' | sudo -S rm -f {remote_file} {remote_script} /tmp/patterns /tmp/Cat-Scale-logstash.conf"
+                    if not local_path:
+                        local_path = default_path
                     
-                    # Crear un nuevo canal para la limpieza
+                    if self._download_remote_file(ssh, remote_file, local_path):
+                        print(f"Archivo guardado en: {local_path}")
+                        
+                        # Eliminar archivo generado y archivos temporales
+                        print("Limpiando archivos temporales...")
+                        cleanup_cmd = f"echo '{sudo_password}' | sudo -S rm -f {remote_file} {remote_script} /tmp/patterns /tmp/Cat-Scale-logstash.conf"
+                        
+                        # Crear un nuevo canal para la limpieza
+                        cleanup_channel = ssh.get_transport().open_session()
+                        cleanup_channel.get_pty()
+                        cleanup_channel.exec_command(cleanup_cmd)
+                        
+                        # Esperar a que termine la limpieza y manejar cualquier error
+                        exit_status = cleanup_channel.recv_exit_status()
+                        if exit_status != 0:
+                            stderr = cleanup_channel.recv_stderr(4096).decode('utf-8')
+                            print(f"Advertencia: La limpieza de archivos puede no haber sido completa. Estado: {exit_status}")
+                            if stderr:
+                                print(f"Error durante limpieza: {stderr}")
+                        
+                        cleanup_channel.close()
+                        self._handle_decompression_script(local_path)
+                    else:
+                        print("No se pudo descargar el archivo.")
+                else:
+                    print("No se pudo determinar el nombre del archivo generado.")
+                    
+                    # Limpiar solo los archivos temporales si no se generó archivo
+                    cleanup_cmd = f"echo '{sudo_password}' | sudo -S rm -f {remote_script} /tmp/patterns /tmp/Cat-Scale-logstash.conf"
                     cleanup_channel = ssh.get_transport().open_session()
                     cleanup_channel.get_pty()
                     cleanup_channel.exec_command(cleanup_cmd)
-                    
-                    # Esperar a que termine la limpieza y manejar cualquier error
-                    exit_status = cleanup_channel.recv_exit_status()
-                    if exit_status != 0:
-                        stderr = cleanup_channel.recv_stderr(4096).decode('utf-8')
-                        print(f"Advertencia: La limpieza de archivos puede no haber sido completa. Estado: {exit_status}")
-                        if stderr:
-                            print(f"Error durante limpieza: {stderr}")
-                    
+                    cleanup_channel.recv_exit_status()
                     cleanup_channel.close()
-                    self._handle_decompression_script(local_path)
-                else:
-                    print("No se pudo descargar el archivo.")
-            else:
-                print("No se pudo determinar el nombre del archivo generado.")
                 
-                # Limpiar solo los archivos temporales si no se generó archivo
-                cleanup_cmd = f"echo '{sudo_password}' | sudo -S rm -f {remote_script} /tmp/patterns /tmp/Cat-Scale-logstash.conf"
-                cleanup_channel = ssh.get_transport().open_session()
-                cleanup_channel.get_pty()
-                cleanup_channel.exec_command(cleanup_cmd)
-                cleanup_channel.recv_exit_status()
-                cleanup_channel.close()
-            
-            if stderr_output:
-                print(f"Error: {stderr_output}")
-                
-        except Exception as e:
-            print(f"Error en la ejecución remota: {e}")
-        finally:
-            if ssh:
-                try:
-                    ssh.close()
-                except:
-                    pass
+                if stderr_output:
+                    print(f"Error: {stderr_output}")
+                    
+            except Exception as e:
+                print(f"Error en la ejecución remota: {e}")
+            finally:
+                if ssh:
+                    try:
+                        ssh.close()
+                    except:
+                        pass
+                        
+        self.execute_with_cleanup(remote_execution)
 
     def _get_remote_file_path(self, stdout_data: str, prefix: str = None) -> str:
         """Extrae el nombre del archivo comprimido de la salida del script
@@ -542,26 +548,6 @@ class CatScaleModule(ToolModule):
             print(f"Error al descargar el archivo: {e}")
             return False
 
-    def cleanup_tmux_session(self):
-        """Cierra la sesión de tmux al finalizar todo el proceso"""
-        try:
-            # Verificar si hay una sesión de tmux activa
-            result = subprocess.run(['tmux', 'list-sessions'], capture_output=True, text=True)
-            if result.returncode == 0 and result.stdout.strip():
-                print("\nSe ha detectado una sesión de tmux activa.")
-                close_session = input("¿Desea cerrar la sesión de tmux? (s/N): ").lower() == 's'
-                
-                if close_session:
-                    print("Cerrando sesión de tmux...")
-                    subprocess.run(['tmux', 'kill-session'], check=True)
-                    print("Sesión de tmux cerrada correctamente.")
-                else:
-                    print("La sesión de tmux permanecerá activa.")
-        except subprocess.CalledProcessError as e:
-            print(f"Error al intentar gestionar la sesión de tmux: {e}")
-        except Exception as e:
-            print(f"Error inesperado al gestionar tmux: {e}")
-
     def _handle_decompression_script(self, compressed_file_path: str) -> None:
         """Maneja la copia y ejecución del script de descompresión"""
         try:
@@ -570,7 +556,7 @@ class CatScaleModule(ToolModule):
             target_dir = compressed_file.parent
             
             # Ruta al script de descompresión
-            decompress_script = Path(self.get_script_path()).parent / "Extract-Cat-Scale.sh"
+            decompress_script = Path(self._get_script_path()).parent / "Extract-Cat-Scale.sh"
             
             if not decompress_script.exists():
                 print("\nAdvertencia: No se encuentra el script de descompresión.")

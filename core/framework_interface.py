@@ -2,6 +2,10 @@ import cmd
 import importlib
 import pkgutil
 import subprocess
+import signal
+import os
+import getpass
+from datetime import datetime
 from pathlib import Path
 import shutil
 from typing import Dict, Optional, List
@@ -9,144 +13,61 @@ import platform
 from .terminal_management import TerminalManager
 from .sessions_manager import SessionManager
 from .colors import Colors
-from core.base import ToolModule
-
+from .base import ToolModule
 
 class FrameworkInterface(cmd.Cmd):
-    intro = f'''{Colors.PRIMARY}
-    ╔══════════════════════════════════════════════════════════════════╗
-    ║  {Colors.ACCENT}╭─────────────────────────────────────────────────────────╮{Colors.PRIMARY}     ║
-    ║  {Colors.ACCENT}│{Colors.SECONDARY}                  H4CK3R T00LS FR4MEW0RK                 {Colors.ACCENT}│{Colors.PRIMARY}     ║
-    ║  {Colors.ACCENT}╰─────────────────────────────────────────────────────────╯{Colors.PRIMARY}     ║
-    ╠══════════════════════════════════════════════════════════════════╣
-    ║                                                                  ║
-    ║  {Colors.SUCCESS}●{Colors.PRIMARY} Sistema   {Colors.TEXT}Presiona {Colors.HIGHLIGHT}'help'{Colors.TEXT} o {Colors.HIGHLIGHT}'?'{Colors.TEXT} para ver comandos    {Colors.PRIMARY}         ║
-    ║  {Colors.WARNING}●{Colors.PRIMARY} Tools     {Colors.TEXT}Escribe {Colors.HIGHLIGHT}'list'{Colors.TEXT} para ver herramientas       {Colors.PRIMARY}         ║
-    ║  {Colors.ERROR}●{Colors.PRIMARY} Sessions  {Colors.TEXT}Usa {Colors.HIGHLIGHT}'sessions'{Colors.TEXT} para gestionar sesiones     {Colors.PRIMARY}         ║
-    ║                                                                  ║
-    ╚══════════════════════════════════════════════════════════════════╝
+    # Obtener nombre de usuario
+    username = getpass.getuser()
+    current_time = datetime.now().strftime("%H:%M:%S")
 
-    {Colors.SUBTLE}Versión 1.0 - Developed with ♥ by pr0ff3{Colors.ENDC}
+    intro = f'''{Colors.PRIMARY}
+    ╔══════════════════════════════════════════════════════════════════════╗
+    ║    {Colors.ACCENT}╭───────────────────────────────────────────────────────────╮{Colors.PRIMARY}     ║
+    ║    {Colors.ACCENT}│{Colors.SECONDARY}              CoreSecurityFramework v1.0                   {Colors.ACCENT}│     {Colors.PRIMARY}║
+    ║    {Colors.ACCENT}╰───────────────────────────────────────────────────────────╯{Colors.PRIMARY}     ║
+    ╠══════════════════════════════════════════════════════════════════════╣
+    ║                                                                      ║
+    ║ {Colors.SUCCESS}●{Colors.PRIMARY} Sistema  {Colors.TEXT}Presiona {Colors.HIGHLIGHT}'help'{Colors.TEXT} o {Colors.HIGHLIGHT}'?'{Colors.TEXT} para ver comandos     {Colors.PRIMARY}              ║
+    ║ {Colors.WARNING}●{Colors.PRIMARY} Tools    {Colors.TEXT}Escribe {Colors.HIGHLIGHT}'list'{Colors.TEXT} para ver herramientas        {Colors.PRIMARY}              ║
+    ║ {Colors.ERROR}●{Colors.PRIMARY} Sessions {Colors.TEXT}Usa {Colors.HIGHLIGHT}'sessions'{Colors.TEXT} para gestionar sesiones    {Colors.PRIMARY}                ║
+    ║                                                                      ║
+    ╚══════════════════════════════════════════════════════════════════════╝
+    {Colors.WARNING}Started at {Colors.TEXT} {current_time}  |  Licensed under MIT{Colors.ENDC}
+    {Colors.TEXT}CoreSecurityFramework v1.0 - Developed with {Colors.ACCENT} ♥ {Colors.PRIMARY}by {Colors.SECONDARY} pr0ff3{Colors.ENDC}
     '''
 
-    prompt = f'{Colors.PRIMARY}╭─{Colors.SECONDARY}({Colors.HIGHLIGHT}M41N C0NS0L3{Colors.SECONDARY}){Colors.PRIMARY}─{Colors.SUBTLE}[{Colors.TEXT}#{Colors.SUBTLE}]{Colors.PRIMARY}\n╰─{Colors.ACCENT}≫ {Colors.TEXT}'
-
+    prompt = f'{Colors.PRIMARY}╭─{Colors.SECONDARY}({Colors.HIGHLIGHT}{username}@CoreSec{Colors.SECONDARY}){Colors.PRIMARY}─{Colors.SUBTLE}[{Colors.TEXT}#{Colors.SUBTLE}]{Colors.PRIMARY}\n╰─{Colors.ACCENT}≫ {Colors.TEXT}'
+    
     def __init__(self):
+
         super().__init__()
-        self.modules: Dict[str, ToolModule] = {}
+        self.modules = ToolModule.load_modules()
         self.session_manager = SessionManager()
         TerminalManager.check_tmux_installed()
-        self.load_modules()
+        signal.signal(signal.SIGINT, self.handle_sigint)
+        ToolModule.load_modules()
 
-    def load_modules(self) -> None:
-        """Carga dinámicamente todos los módulos disponibles"""
-        modules_dir = Path(__file__).parent.parent / 'modules'
-        if not modules_dir.exists():
-            print(f"{Colors.WARNING}[!] Directorio de módulos no encontrado en {modules_dir}{Colors.ENDC}")
-            return
-
-        for module_info in pkgutil.iter_modules([str(modules_dir)]):
-            if module_info.name.startswith('_'):
-                continue
-
-            try:
-                module = importlib.import_module(f'modules.{module_info.name}')
-                for attr_name in dir(module):
-                    attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and
-                            issubclass(attr, ToolModule) and
-                            attr != ToolModule):
-                        tool = attr()
-                        self.modules[tool.name.lower()] = tool
-                        break
-            except ImportError as e:
-                print(f"{Colors.FAIL}[!] Error cargando módulo {module_info.name}: {e}{Colors.ENDC}")
-
-    def get_package_manager(self) -> tuple:
-        """
-        Detecta el gestor de paquetes del sistema
-        Returns:
-            tuple: (package_manager, commands_dict)
-        """
-        if platform.system() == 'Linux':
-            if os.path.exists('/usr/bin/apt'):
-                return 'apt', {
-                    'install': 'sudo apt-get install -y',
-                    'update': 'sudo apt-get update && sudo apt-get upgrade -y',
-                    'remove': 'sudo apt-get remove -y',
-                    'autoremove': 'sudo apt-get autoremove -y',
-                    'show_cmd': 'apt show'
-                }
-            elif os.path.exists('/usr/bin/yum'):
-                return 'yum', {
-                    'install': 'sudo yum install -y',
-                    'update': 'sudo yum update -y',
-                    'remove': 'sudo yum remove -y',
-                    'autoremove': 'sudo yum autoremove -y',
-                    'show_cmd': 'yum info'
-                }
-            elif os.path.exists('/usr/bin/pacman'):
-                return 'pacman', {
-                    'install': 'sudo pacman -S --noconfirm',
-                    'update': 'sudo pacman -Syu --noconfirm',
-                    'remove': 'sudo pacman -R --noconfirm',
-                    'autoremove': 'sudo pacman -Rns --noconfirm',
-                    'show_cmd': 'pacman -Si'
-                }
-        return None, None
-
-    def _execute_package_commands(self, tool_name: str, command_type: str) -> None:
-        """Ejecuta comandos de gestión de paquetes"""
-        module = self.modules.get(tool_name.lower())
-        if not module:
-            print(f"{Colors.FAIL}[!] Error: Herramienta '{tool_name}' no encontrada{Colors.ENDC}")
-            return
-
-        pkg_manager = self.get_package_manager()[0]
-        
-        command_getters = {
-            'install': module.get_package_install,
-            'update': module.get_package_update,
-            'remove': module.get_package_remove
-        }
-        
-        getter = command_getters.get(command_type)
-        if not getter:
-            print(f"{Colors.FAIL}[!] Tipo de comando no válido: {command_type}{Colors.ENDC}")
-            return
-            
-        package_commands = getter()
-        
-        if pkg_manager not in package_commands:
-            print(f"{Colors.FAIL}[!] Gestor de paquetes '{pkg_manager}' no soportado para {tool_name}{Colors.ENDC}")
-            print(f"{Colors.CYAN}Gestores soportados: {', '.join(package_commands.keys())}{Colors.ENDC}")
-            return
-
-        # Ejecutar comandos secuencialmente
-        all_commands_successful = True
-        for cmd in package_commands[pkg_manager]:
-            if not self._run_command(cmd):
-                print(f"{Colors.FAIL}[!] Operación {command_type} interrumpida{Colors.ENDC}")
-                all_commands_successful = False
-                break
-        
-        # Verificar el estado después de la operación
-        if all_commands_successful and hasattr(module, 'check_installation'):
-            module._installed = None  # Resetear el estado
-            is_installed = module.check_installation()
-            
-            if command_type == 'install':
-                if is_installed:
-                    print(f"{Colors.OKGREEN}[+] {tool_name} ha sido instalado correctamente{Colors.ENDC}")
-                else:
-                    print(f"{Colors.WARNING}[!] {tool_name} no parece estar instalado correctamente{Colors.ENDC}")
-            elif command_type == 'remove':
-                if not is_installed:
-                    print(f"{Colors.OKGREEN}[+] {tool_name} ha sido desinstalado correctamente{Colors.ENDC}")
-                else:
-                    print(f"{Colors.WARNING}[!] {tool_name} parece que aún está instalado{Colors.ENDC}")
+    def execute_pkg(self, tool_name: str, command_type: str) -> None:
+        # Usar el primer módulo disponible para ejecutar el comando
+        if self.modules:
+            first_module = next(iter(self.modules.values()))
+            first_module._execute_package_commands(tool_name, command_type)
         else:
-            print(f"{Colors.WARNING}[!] No se pudo verificar el estado de la operación{Colors.ENDC}")
+            print("[!] Error: No hay módulos cargados")
+
+    def handle_sigint(self, signum, frame):
+        """Manejador personalizado para Ctrl+C"""
+        print("\n\n[!] Usa 'exit' para salir del framework")
+        return
+
+    def default(self, line: str) -> None:
+        """Manejador de comandos desconocidos"""
+        print(f"{Colors.FAIL}[!] Comando desconocido: {line}{Colors.ENDC}")
+        print(f"{Colors.CYAN}[*] Usa 'help' para ver los comandos disponibles{Colors.ENDC}")
+        
+    def emptyline(self) -> bool:
+        """No hacer nada cuando se presiona Enter sin comando"""
+        return False
 
     # Comandos del framework
     def do_exit(self, arg: str) -> bool:
@@ -159,22 +80,68 @@ class FrameworkInterface(cmd.Cmd):
         print(f"\n{Colors.CYAN}[*] Should we fear hackers? Intention is at the heart of this discussion.{Colors.ENDC}")
         return True
 
-    def do_clear(self, arg: str) -> None:
-        """Limpia la pantalla"""
-        TerminalManager.clear_screen()
-        print(self.intro)
-
     def do_list(self, arg: str) -> None:
-        """Lista todas las herramientas disponibles y su estado"""
-        print(f"\n{Colors.CYAN}[*] Herramientas disponibles:{Colors.ENDC}")
-        for name, module in self.modules.items():
-            status = f"{Colors.GREEN}[✓] Instalado{Colors.ENDC}" if module.installed else f"{Colors.FAIL}[✗] No instalado{Colors.ENDC}"
-            print(f"\n{Colors.BOLD}{module.name}:{Colors.ENDC}")
-            print(f"  Estado: {status}")
-            print(f"  Descripción: {module.description}")
-            print(f"  Comando: {module.command}")
-            if module.dependencies:
-                print(f"  Dependencias: {', '.join(module.dependencies)}")
+        """
+        Lista elementos del framework en formato de tabla.
+        Uso: list [tools|sessions]
+        """
+        args = arg.split()
+        if not args:
+            print(f"{Colors.FAIL}[!] Error: Especifica qué quieres listar (tools|sessions){Colors.ENDC}")
+            return
+
+        if args[0].lower() == "tools":
+            print(f"\n{Colors.CYAN}[*] Herramientas disponibles:{Colors.ENDC}")
+            
+            # Actualizar módulos
+            self.modules = ToolModule.load_modules()
+            
+            # Crear tabla
+            header = f'''
+╔══════════════════╦═══════════════╦═══════════════════════════════════╦════════════════════════╗
+║ {Colors.BOLD}Nombre{Colors.ENDC}           ║ {Colors.BOLD}Estado{Colors.ENDC}        ║ {Colors.BOLD}Descripción{Colors.ENDC}                       ║ {Colors.BOLD}Dependencias{Colors.ENDC}           ║
+╠══════════════════╬═══════════════╬═══════════════════════════════════╬════════════════════════╣'''
+            print(header)
+
+            for name, module in self.modules.items():
+                # Actualizar estado de instalación
+                module.check_installation()
+                
+                # Preparar estado con color y padding específico
+                if module.installed:
+                    status = f"{Colors.GREEN}Instalado{Colors.ENDC}".ljust(22)  # 8 chars + color codes
+                else:
+                    status = f"{Colors.FAIL}No instalado{Colors.ENDC}".ljust(22)  # 11 chars + color codes
+                
+                # Preparar dependencias
+                deps = ', '.join(module.dependencies) if module.dependencies else "Ninguna"
+                
+                # Truncar textos largos
+                name_trunc = module.name[:16].ljust(16)
+                desc_trunc = module.description[:33].ljust(33)
+                deps_trunc = deps[:20].ljust(20)
+                
+                # Imprimir fila
+                print(f"║ {name_trunc} ║ {status} ║ {desc_trunc} ║ {deps_trunc}   ║")
+
+            # Pie de tabla
+            footer = "╚══════════════════╩═══════════════╩═══════════════════════════════════╩════════════════════════╝"
+            print(footer)
+            
+            # Mostrar información adicional de comando
+            print(f"\n{Colors.SUBTLE}Para usar una herramienta: {Colors.HIGHLIGHT}use <nombre>{Colors.ENDC}")
+
+        elif args[0].lower() == "sessions":
+            print(f"\n{Colors.CYAN}[*] Sesiones activas:{Colors.ENDC}")
+            
+            # Llamar al manejador de sesiones modificado para usar este formato
+            self.session_manager.list_sessions()
+                        
+            # Información adicional
+            print(f"\n{Colors.SUBTLE}Para interactuar con una sesión: {Colors.HIGHLIGHT}session <id>{Colors.ENDC}")
+            
+        else:
+            print(f"{Colors.FAIL}[!] Error: Opción no válida. Usa 'tools' o 'sessions'{Colors.ENDC}")
 
     def do_install(self, arg: str) -> None:
         """Instala una herramienta"""
@@ -182,7 +149,7 @@ class FrameworkInterface(cmd.Cmd):
         if not args:
             print(f"{Colors.FAIL}[!] Error: Debes especificar una herramienta{Colors.ENDC}")
             return
-        self._execute_package_commands(args[0], 'install')
+        self.execute_pkg(args[0], 'install')
 
     def do_update(self, arg: str) -> None:
         """Actualiza una herramienta"""
@@ -190,7 +157,7 @@ class FrameworkInterface(cmd.Cmd):
         if not args:
             print(f"{Colors.FAIL}[!] Error: Debes especificar una herramienta{Colors.ENDC}")
             return
-        self._execute_package_commands(args[0], 'update')
+        self.execute_pkg(args[0], 'update')
 
     def do_remove(self, arg: str) -> None:
         """Desinstala una herramienta"""
@@ -198,22 +165,33 @@ class FrameworkInterface(cmd.Cmd):
         if not args:
             print(f"{Colors.FAIL}[!] Error: Debes especificar una herramienta{Colors.ENDC}")
             return
-        self._execute_package_commands(args[0], 'remove')
+        self.execute_pkg(args[0], 'remove')
+
 
     def do_use(self, arg: str) -> None:
-        """Ejecuta una herramienta específica"""
-        if not arg:
-            print(f"{Colors.FAIL}[!] Error: Debes especificar una herramienta{Colors.ENDC}")
+        """Ejecuta una herramienta o conecta a una sesión
+        Uso: use <tool> | use session <id>"""
+        args = arg.split()
+        if not args:
+            print(f"{Colors.FAIL}[!] Error: Comando incompleto{Colors.ENDC}")
+            print("Uso: use <tool> | use session <id>")
             return
 
-        module = self.modules.get(arg.lower())
+        if args[0].lower() == "session" and len(args) > 1:
+            self.session_manager.use_session(args[1])
+        else:
+            self._use_tool(args[0])
+
+    def _use_tool(self, tool_name: str) -> None:
+        """Método auxiliar para ejecutar una herramienta"""
+        module = self.modules.get(tool_name.lower())
         if not module:
-            print(f"{Colors.FAIL}[!] Error: Herramienta '{arg}' no encontrada{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: Herramienta '{tool_name}' no encontrada{Colors.ENDC}")
             return
 
         if not module.installed:
-            print(f"{Colors.FAIL}[!] Error: La herramienta {arg} no está instalada{Colors.ENDC}")
-            print(f"{Colors.CYAN}[*] Puedes instalarla con el comando: install {arg}{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: La herramienta {tool_name} no está instalada{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] Puedes instalarla con el comando: install {tool_name}{Colors.ENDC}")
             return
 
         # Mostramos la información inicial al usuario
@@ -221,19 +199,19 @@ class FrameworkInterface(cmd.Cmd):
         print(f"\n{Colors.GREEN}Selecciona el modo de ejecución:{Colors.ENDC}")
         print(f"{Colors.GREEN}1:{Colors.ENDC} Modo Guiado")
         print(f"{Colors.GREEN}2:{Colors.ENDC} Modo Directo")
-        print(f"{Colors.GREEN}3:{Colors.ENDC} Volver al menú principal")
+        print(f"{Colors.GREEN}0:{Colors.ENDC} Volver al menú principal")
         
         while True:
             try:
                 mode = input(f"\n{Colors.BOLD}Selecciona modo (1/2/3): {Colors.ENDC}").strip()
-                if mode in ('1', '2', '3'):
+                if mode in ('1', '2', '0'):
                     break
                 print(f"{Colors.FAIL}[!] Opción no válida{Colors.ENDC}")
             except KeyboardInterrupt:
                 print("\n")
                 return
 
-        if mode == "3":
+        if mode == "0":
             return
 
         # Crear y inicializar sesión
@@ -285,6 +263,40 @@ class FrameworkInterface(cmd.Cmd):
                 session.kill_terminal()
                 del self.session_manager.sessions[int(session.session_id)]
 
+    def do_kill(self, arg: str) -> None:
+        """
+        Termina sesiones.
+        Uso: kill session <id> | kill all sessions
+        """
+        args = arg.split()
+        if not args:
+            print(f"{Colors.FAIL}[!] Error: Comando incompleto{Colors.ENDC}")
+            print("Uso: kill session <id> | kill all sessions")
+            return
+
+        if args[0].lower() == "all" and len(args) > 1 and args[1].lower() == "sessions":
+            self.session_manager.kill_all_sessions()
+        elif args[0].lower() == "session" and len(args) > 1:
+            session_id = args[1]
+            self.session_manager.kill_session(session_id)
+        else:
+            print(f"{Colors.FAIL}[!] Error: Comando incorrecto{Colors.ENDC}")
+            print("Uso: kill session <id> | kill all sessions")
+
+    def do_clear(self, arg: str) -> None:
+        """
+        Limpia la pantalla o sesiones.
+        Uso: clear (limpia pantalla) | clear sessions
+        """
+        if not arg:
+            TerminalManager.clear_screen()
+            print(self.intro)
+        elif arg.lower() == "sessions":
+            self.session_manager.clear_sessions()
+        else:
+            print(f"{Colors.FAIL}[!] Error: Comando incorrecto{Colors.ENDC}")
+            print("Uso: clear (limpia pantalla) | clear sessions")
+
     def do_sessions(self, arg: str) -> None:
         """Gestiona las sesiones activas"""
         args = arg.split()
@@ -309,12 +321,40 @@ class FrameworkInterface(cmd.Cmd):
             print("  sessions kill all  - Termina todas las sesiones")
             print("  sessions clear     - Gestiona la limpieza de sesiones")
 
-    def complete_sessions(self, text, line, begidx, endidx):
-        """Autocompletado para el comando sessions"""
-        commands = ['list', 'kill', 'use', 'clear']
+    def complete_kill(self, text, line, begidx, endidx):
+        """Autocompletado para el comando kill"""
+        words = line.split()
+        if len(words) <= 2:
+            options = ['session', 'all']
+            if not text:
+                return options
+            return [opt for opt in options if opt.startswith(text)]
+        elif len(words) == 3 and words[1] == "all":
+            return ['sessions'] if not text or 'sessions'.startswith(text) else []
+        return []
+
+    def complete_clear(self, text, line, begidx, endidx):
+        """Autocompletado para el comando clear"""
         if not text:
-            return commands
-        return [c for c in commands if c.startswith(text)]
+            return ['sessions']
+        return ['sessions'] if 'sessions'.startswith(text) else []
+
+    def complete_use(self, text, line, begidx, endidx):
+        """Autocompletado para el comando use"""
+        words = line.split()
+        if len(words) <= 2:
+            options = ['session'] + list(self.modules.keys())
+            if not text:
+                return options
+            return [opt for opt in options if opt.startswith(text)]
+        return []
+
+    def complete_list(self, text, line, begidx, endidx):
+        """Autocompletado para el comando list"""
+        options = ['tools', 'sessions']
+        if not text:
+            return options
+        return [opt for opt in options if opt.startswith(text)]
 
     def _show_tmux_help(self):
         """Muestra ayuda sobre el uso de tmux"""
@@ -332,31 +372,42 @@ class FrameworkInterface(cmd.Cmd):
         print("  • sessions use <id> - Conectar a una sesión específica")
         print("  • sessions kill <id>- Terminar una sesión")
         print("  • help tmux         - Mostrar esta ayuda")
+        print(f"\n{Colors.CYAN}[*] Para más información:{Colors.ENDC}")
+        print("  • https://tmuxcheatsheet.com/")
+        print(f"\n")
 
     def do_help(self, arg: str) -> None:
         """Muestra ayuda sobre comandos: help [comando]"""
         
-        def print_header(text: str):
-            """Imprime un encabezado con formato especial"""
-            print(f"\n{Colors.CYAN}╭{'─' * (len(text) + 2)}╮{Colors.ENDC}")
-            print(f"{Colors.CYAN}│ {Colors.BOLD}{text} {Colors.ENDC}{Colors.CYAN}│{Colors.ENDC}")
-            print(f"{Colors.CYAN}╰{'─' * (len(text) + 2)}╯{Colors.ENDC}\n")
+        def print_main_header():
+            """Imprime el encabezado principal del framework"""
+            print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}CoreSecurityFramework{Colors.PRIMARY} - Panel de Ayuda                    ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}''')
 
-        def print_section(title: str):
-            """Imprime un título de sección"""
-            print(f"\n{Colors.GREEN}▓▒░ {title} ░▒▓{Colors.ENDC}")
+        def print_section_header(title: str):
+            """Imprime el encabezado de una sección"""
+            print(f'''
+{Colors.PRIMARY}╭────────────────────────────────────────────────────────────╮
+│  {Colors.BOLD}{title}{Colors.ENDC}{Colors.PRIMARY}                                   │                                       
+╰────────────────────────────────────────────────────────────╯{Colors.ENDC}''')
 
         def print_command(cmd: str, desc: str):
             """Imprime un comando con su descripción"""
-            print(f"  {Colors.BOLD}{cmd:<12}{Colors.ENDC} {desc}")
+            print(f"  {Colors.HIGHLIGHT}{cmd:<15}{Colors.ENDC} {desc}")
 
         def print_option(opt: str, desc: str):
             """Imprime una opción con su descripción"""
-            print(f"  {Colors.CYAN}{opt:<15}{Colors.ENDC} {desc}")
+            print(f"    {Colors.SECONDARY}{opt:<20}{Colors.ENDC} {Colors.TEXT}{desc}{Colors.ENDC}")
 
         def print_example(example: str):
-            """Imprime un ejemplo"""
-            print(f"  {Colors.GREEN}▶{Colors.ENDC} {example}")
+            """Imprime un ejemplo de uso"""
+            print(f"    {Colors.SUCCESS}▶{Colors.ENDC} {example}")
+
+        def print_note(note: str):
+            """Imprime una nota"""
+            print(f"    {Colors.WARNING}•{Colors.ENDC} {note}")
 
         if arg:
             arg = arg.lower()
@@ -364,43 +415,50 @@ class FrameworkInterface(cmd.Cmd):
                 self._show_tmux_help()
                 return
 
-            # Primero intentar obtener ayuda del módulo si existe
-            try:
-                # Buscar el módulo por nombre
-                for name, module in self.modules.items():
-                    if module._get_name().lower() == arg:
+            # Buscar primero en módulos
+            for name, module in self.modules.items():
+                if module._get_name().lower() == arg:
+                    try:
                         help_data = module.get_help()
-                        print_header(help_data["title"])
-                        print(f"{Colors.CYAN}Uso:{Colors.ENDC} {help_data['usage']}")
-                        print(f"\n{help_data['desc']}")
+                        print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}{help_data["title"]}{Colors.PRIMARY}                     ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}''')
+                        
+                        print(f"\n{Colors.BOLD}USO:{Colors.ENDC}")
+                        print(f"  {help_data['usage']}")
+                        
+                        print(f"\n{Colors.BOLD}DESCRIPCIÓN:{Colors.ENDC}")
+                        print(f"  {help_data['desc']}")
                         
                         if "modes" in help_data:
-                            print_section("Modos de Uso")
+                            print_section_header("MODOS DE USO           ")
                             for mode, desc in help_data["modes"].items():
                                 print_option(mode, desc)
-                                
+                        
                         if "options" in help_data:
-                            print_section("Opciones")
+                            print_section_header("OPCIONES               ")
                             for opt, desc in help_data["options"].items():
                                 print_option(opt, desc)
                         
                         if "examples" in help_data:
-                            print_section("Ejemplos")
+                            print_section_header("EJEMPLOS               ")
                             for example in help_data["examples"]:
                                 print_example(example)
-                                
-                        if "notes" in help_data:
-                            print_section("Notas")
-                            for note in help_data["notes"]:
-                                print(f"  • {note}")
-                        return
                         
-            except Exception as e:
-                print(f"Error al obtener la ayuda del módulo: {e}")
-  
+                        if "notes" in help_data:
+                            print_section_header("NOTAS                  ")
+                            for note in help_data["notes"]:
+                                print_note(note)
+                        return
+                    except Exception as e:
+                        print(f"{Colors.ERROR}[!] Error al obtener la ayuda del módulo: {e}{Colors.ENDC}")
+                        return
+
+            # Comandos del framework
             command_help = {
                 "install": {
-                    "title": "Instalación de Herramientas",
+                    "title": "Instalación de Herramientas    ",
                     "usage": "install <nombre> [--show-cmd]",
                     "desc": "Instala una herramienta en el sistema.",
                     "options": {
@@ -411,94 +469,58 @@ class FrameworkInterface(cmd.Cmd):
                         "install john --show-cmd"
                     ]
                 },
-                "remove": {
-                    "title": "Desinstalación de Herramientas",
-                    "usage": "remove <nombre> [--show-cmd] [--no-autoremove]",
-                    "desc": "Desinstala una herramienta del sistema.",
-                    "options": {
-                        "--show-cmd": "Muestra el comando que se ejecutaría sin realizarlo",
-                        "--no-autoremove": "No ejecuta autoremove después de la desinstalación"
-                    },
-                    "examples": [
-                        "remove nmap",
-                        "remove john --show-cmd"
-                    ]
-                },
-                "update": {
-                    "title": "Actualización de Herramientas",
-                    "usage": "update [nombre] [--show-cmd]",
-                    "desc": "Actualiza una herramienta específica o todo el sistema.",
-                    "options": {
-                        "--show-cmd": "Muestra el comando que se ejecutaría sin realizarlo"
-                    },
-                    "examples": [
-                        "update",
-                        "update nmap",
-                        "update nmap --show-cmd"
-                    ]
-                },
-                "use": {
-                    "title": "Uso de Herramientas",
-                    "usage": "use <nombre>",
-                    "desc": "Ejecuta una herramienta en modo guiado o directo.",
-                    "examples": [
-                        "use nmap",
-                        "use john"
-                    ]
-                },
-                "sessions": {
-                    "title": "Gestión de Sesiones",
-                    "usage": "sessions [list|use|kill|clear] [id]",
-                    "desc": "Administra las sesiones activas del framework.",
-                    "options": {
-                        "list": "Lista todas las sesiones activas",
-                        "use": "Conecta a una sesión específica",
-                        "kill": "Termina una sesión específica",
-                        "clear": "Limpia todas las sesiones inactivas"
-                    },
-                    "examples": [
-                        "sessions",
-                        "sessions use 1",
-                        "sessions kill 2"
-                    ]
-                }
+                # ... resto de comandos ...
             }
 
             if arg in command_help:
                 help_data = command_help[arg]
-                print_header(help_data["title"])
-                print(f"{Colors.CYAN}Uso:{Colors.ENDC} {help_data['usage']}")
-                print(f"\n{help_data['desc']}")
+                print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}{help_data["title"]}{Colors.PRIMARY}                           ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}''')
+                
+                print(f"\n{Colors.BOLD}USO:{Colors.ENDC}")
+                print(f"  {help_data['usage']}")
+                
+                print(f"\n{Colors.BOLD}DESCRIPCIÓN:{Colors.ENDC}")
+                print(f"  {help_data['desc']}")
                 
                 if "options" in help_data:
-                    print_section("Opciones")
+                    print_section_header("OPCIONES               ")
                     for opt, desc in help_data["options"].items():
                         print_option(opt, desc)
                 
                 if "examples" in help_data:
-                    print_section("Ejemplos")
+                    print_section_header("EJEMPLOS               ")
                     for example in help_data["examples"]:
                         print_example(example)
             else:
                 super().do_help(arg)
         
         else:
-            print_header("Panel de Ayuda del Framework")
+            # Menú principal de ayuda
+            print_main_header()
             
-            print_section("Gestión de Herramientas")
+            print_section_header("GESTIÓN DE HERRAMIENTAS")
             print_command("list", "Lista todas las herramientas disponibles")
-            print_command("install", "Instala una herramienta")
+            print_command("install", "Instala una herramienta específica")
             print_command("remove", "Desinstala una herramienta")
-            print_command("update", "Actualiza una herramienta o el sistema")
+            print_command("update", "Actualiza herramientas o el sistema")
             
-            print_section("Uso de Herramientas")
-            print_command("use", "Ejecuta una herramienta")
-            print_command("sessions", "Gestiona sesiones activas")
+            print_section_header("USO DE HERRAMIENTAS    ")
+            print_command("use", "Ejecuta una herramienta en modo interactivo")
+            print_command("sessions", "Gestiona las sesiones activas")
             
-            print_section("Sistema")
+            print_section_header("SISTEMA                ")
             print_command("clear", "Limpia la pantalla")
             print_command("exit", "Sale del framework")
-            print_command("help", "Muestra esta ayuda")
-            
-            print(f"\n{Colors.CYAN}▶{Colors.ENDC} Usa '{Colors.BOLD}help <comando>{Colors.ENDC}' para más información sobre un comando específico")
-            print(f"{Colors.CYAN}▶{Colors.ENDC} Usa '{Colors.BOLD}help tmux{Colors.ENDC}' para ver los comandos de tmux")
+            print_command("help", "Muestra este panel de ayuda")
+
+            print(f'''
+{Colors.PRIMARY}╭────────────────────────────────────────────────────────────╮
+│  {Colors.TEXT}Para más información sobre un comando específico:{Colors.ENDC}{Colors.PRIMARY}         │
+│  {Colors.SECONDARY}help <comando>{Colors.PRIMARY}                                            │
+│                                                            │      
+│  {Colors.TEXT}Para ver los atajos de tmux:{Colors.ENDC}{Colors.PRIMARY}                              │
+│  {Colors.SECONDARY}help tmux{Colors.PRIMARY}                                                 │
+╰────────────────────────────────────────────────────────────╯{Colors.ENDC}''')
