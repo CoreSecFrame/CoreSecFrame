@@ -11,11 +11,14 @@ class AnonIPModule(ToolModule):
     def _get_name(self) -> str:
         return "anonip"
 
+    def _get_category(self) -> str:
+        return "Network"
+
     def _get_command(self) -> str:
         return "anonip"
 
     def _get_description(self) -> str:
-        return "Herramienta para anonimizar la conexión mediante cambios de IP, MAC y enrutamiento por TOR"
+        return "Tool to anonymize the connection through IP changes, MAC changes and routing through TOR"
 
     def _get_dependencies(self) -> list:
         return ["tor", "wget", "iptables"]

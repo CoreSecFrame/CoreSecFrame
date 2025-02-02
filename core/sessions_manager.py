@@ -89,7 +89,7 @@ class SessionManager:
         
         session = Session(str(self.session_count), module_name)
         self.sessions[self.session_count] = session
-        print(f"{Colors.GREEN}[+] Nueva sesión creada: {self.session_count} ({module_name}){Colors.ENDC}")
+        print(f"{Colors.GREEN}[+] New session created: {self.session_count} ({module_name}){Colors.ENDC}")
         return session
 
     def check_sessions_initialized(self) -> bool:
@@ -100,7 +100,7 @@ class SessionManager:
         """
         tmux_sessions, error = TerminalManager.list_tmux_sessions()
         
-        if error and "No hay servidor tmux" in error:
+        if error and "There is no tmux server" in error:
             # Si no hay servidor tmux, marcar todas las sesiones como inactivas
             for session in self.sessions.values():
                 session.active = False
@@ -139,13 +139,13 @@ class SessionManager:
         """
         self.check_sessions_initialized()
         # Encabezado de la tabla
-        print(f"\n╔{'═' * 14}╦{'═' * 20}╦{'═' * 15}╦{'═' * 14}╗")
-        print(f"║ {'ID':12} ║ {'Herramienta':18} ║ {'Tipo':13} ║ {'Estado':12} ║")
-        print(f"╠{'═' * 14}╬{'═' * 20}╬{'═' * 15}╬{'═' * 14}╣")
+        print(f"\n{Colors.CYAN}╔{'═' * 14}╦{'═' * 20}╦{'═' * 15}╦{'═' * 14}╗{Colors.ENDC}")
+        print(f"{Colors.CYAN}║ {Colors.ACCENT}{'ID':12} {Colors.CYAN}║ {Colors.ACCENT}{'Tool':18} {Colors.CYAN}║ {Colors.ACCENT}{'Type':13} {Colors.CYAN}║ {Colors.ACCENT}{'Status':12} {Colors.CYAN}║{Colors.ENDC}")
+        print(f"{Colors.CYAN}╠{'═' * 14}╬{'═' * 20}╬{'═' * 15}╬{'═' * 14}╣{Colors.ENDC}")
 
         if not self.sessions:
-            print(f"║ {Colors.SUBTLE}No hay sesiones activas{Colors.ENDC}".ljust(68) + "              ║")
-            print(f"╚{'═' * 14}╩{'═' * 20}╩{'═' * 15}╩{'═' * 14}╝")
+            print(f"{Colors.CYAN}║{Colors.ENDC} {Colors.WARNING}No active sessions{Colors.ENDC}".ljust(91) + f"{Colors.CYAN}║{Colors.ENDC}")
+            print(f"{Colors.CYAN}╚{'═' * 14}╩{'═' * 20}╩{'═' * 15}╩{'═' * 14}╝{Colors.ENDC}")
             return
 
         for session_id, session in self.sessions.items():
@@ -157,7 +157,7 @@ class SessionManager:
             # Determinar el tipo (puede ser Guiado o Directo)
             tipo = (session.last_command if session.last_command else "N/A")[:13].ljust(13)
             # Estado basado en active
-            status = ("ACTIVA" if session.active else "INACTIVA")[:12].ljust(12)
+            status = ("ACTIVE" if session.active else "INACTIVE")[:12].ljust(12)
             
             # Colorear estado
             if session.active:
@@ -165,26 +165,27 @@ class SessionManager:
             else:
                 status = f"{Colors.FAIL}{status}{Colors.ENDC}"
 
-            print(f"║ {id_str} ║ {module_name} ║ {tipo} ║ {status} ║")
+            print(f"{Colors.CYAN}║ {id_str} ║ {module_name} ║ {tipo} ║ {status} {Colors.CYAN}║{Colors.ENDC}")
 
         # Pie de la tabla
-        print(f"╚{'═' * 14}╩{'═' * 20}╩{'═' * 15}╩{'═' * 14}╝")
+        print(f"{Colors.CYAN}╚{'═' * 14}╩{'═' * 20}╩{'═' * 15}╩{'═' * 14}╝")
+        
 
     def clear_sessions(self) -> None:
         """Limpia las sesiones inactivas"""
         self.check_sessions_initialized()
         
         if not self.inactive_sessions:
-            print(f"\n{Colors.GREEN}[✓] No hay sesiones inactivas para limpiar{Colors.ENDC}")
+            print(f"\n{Colors.GREEN}[✓] There are no inactive sessions to clear{Colors.ENDC}")
             return
 
         # Eliminar las sesiones inactivas
         for session_id in self.inactive_sessions:
             if session_id in self.sessions:
                 del self.sessions[session_id]
-                print(f"{Colors.WARNING}[!] Eliminada sesión inactiva {session_id}{Colors.ENDC}")
+                print(f"{Colors.WARNING}[!] Deleted inactive session {session_id}{Colors.ENDC}")
 
-        print(f"\n{Colors.GREEN}[✓] Se han eliminado {len(self.inactive_sessions)} sesiones inactivas{Colors.ENDC}")
+        print(f"\n{Colors.GREEN}[✓] {len(self.inactive_sessions)} inactive sessions deleted{Colors.ENDC}")
         self.inactive_sessions.clear()
 
     def kill_session(self, session_id: str) -> None:
@@ -201,30 +202,30 @@ class SessionManager:
                 session.stop_logging()
                 session.kill_terminal()
                 del self.sessions[sid]
-                print(f"{Colors.GREEN}[✓] Sesión {sid} terminada{Colors.ENDC}")
+                print(f"{Colors.GREEN}[✓] Session {sid} terminated{Colors.ENDC}")
             else:
-                print(f"{Colors.FAIL}[!] Sesión no encontrada{Colors.ENDC}")
+                print(f"{Colors.FAIL}[!] Session not found{Colors.ENDC}")
         except ValueError:
-            print(f"{Colors.FAIL}[!] ID de sesión inválido{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Invalid session ID{Colors.ENDC}")
 
     def kill_all_sessions(self) -> None:
         """Mata todas las sesiones registradas"""
         if not self.sessions:
-            print(f"\n{Colors.WARNING}[!] No hay sesiones para eliminar{Colors.ENDC}")
+            print(f"\n{Colors.WARNING}[!] There are no sessions to kill{Colors.ENDC}")
             return
 
         # Mostrar resumen de sesiones a eliminar
         active = sum(1 for session in self.sessions.values() if session.active)
         inactive = len(self.sessions) - active
-        print(f"\n{Colors.WARNING}[!] Se eliminarán todas las sesiones:{Colors.ENDC}")
-        print(f"  - Sesiones activas: {active}")
-        print(f"  - Sesiones inactivas: {inactive}")
+        print(f"\n{Colors.WARNING}[!] All sessions will be killed:{Colors.ENDC}")
+        print(f"  - Active sessions: {active}")
+        print(f"  - Inactive sessions: {inactive}")
         print(f"  - Total: {len(self.sessions)}")
 
         # Pedir confirmación
-        response = input(f"\n{Colors.WARNING}¿Está seguro de eliminar todas las sesiones? (s/N): {Colors.ENDC}").lower()
-        if response != 's':
-            print(f"\n{Colors.GREEN}[✓] Operación cancelada{Colors.ENDC}")
+        response = input(f"\n{Colors.WARNING}¿Are you sure you want to kill all sessions? (y/N): {Colors.ENDC}").lower()
+        if response != 'y':
+            print(f"\n{Colors.GREEN}[✓] Operation cancelled{Colors.ENDC}")
             return
 
         try:
@@ -239,10 +240,10 @@ class SessionManager:
             # Limpiar el diccionario de sesiones
             self.sessions.clear()
             self.session_count = 0
-            print(f"\n{Colors.GREEN}[✓] Todas las sesiones han sido eliminadas{Colors.ENDC}")
+            print(f"\n{Colors.GREEN}[✓] All sessions killed{Colors.ENDC}")
 
         except Exception as e:
-            print(f"\n{Colors.FAIL}[!] Error al eliminar las sesiones: {e}{Colors.ENDC}")
+            print(f"\n{Colors.FAIL}[!] Error killing sessions: {e}{Colors.ENDC}")
 
     def use_session(self, session_id: str) -> None:
         """Conecta a una sesión específica
@@ -255,15 +256,15 @@ class SessionManager:
             if sid in self.sessions:
                 session = self.sessions[sid]
                 if session.active:
-                    print(f"\n{Colors.CYAN}[*] Conectando a la sesión {sid} ({session.name}){Colors.ENDC}")
-                    print(f"{Colors.CYAN}[*] Usa Ctrl+b d para volver al framework{Colors.ENDC}")
+                    print(f"\n{Colors.CYAN}[*] Session {sid} ({session.name}) connected{Colors.ENDC}")
+                    print(f"{Colors.CYAN}[*] Use Ctrl+b d to return to the framework{Colors.ENDC}")
                     if session.attach_to_tmux():
-                        print(f"\n{Colors.GREEN}[✓] Volviste al framework{Colors.ENDC}")
+                        print(f"\n{Colors.GREEN}[✓] You have returned to the framework{Colors.ENDC}")
                     else:
-                        print(f"{Colors.FAIL}[!] No se pudo conectar a la sesión{Colors.ENDC}")
+                        print(f"{Colors.FAIL}[!] It was not possible to connect to the session{Colors.ENDC}")
                 else:
-                    print(f"{Colors.FAIL}[!] La sesión no está activa{Colors.ENDC}")
+                    print(f"{Colors.FAIL}[!] Session is not active{Colors.ENDC}")
             else:
-                print(f"{Colors.FAIL}[!] Sesión no encontrada{Colors.ENDC}")
+                print(f"{Colors.FAIL}[!] Session not found{Colors.ENDC}")
         except ValueError:
-            print(f"{Colors.FAIL}[!] ID de sesión inválido{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Invalid session ID{Colors.ENDC}")

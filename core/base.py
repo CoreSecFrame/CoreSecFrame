@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 import shutil
 import subprocess
 from typing import List, Optional, Dict
+from .terminal_management import TerminalManager
+from .colors import Colors
 
 # Añadir el directorio raíz al path si no está ya
 root_dir = Path(__file__).parent.parent
@@ -27,6 +29,11 @@ class GetModule(ABC):
     def _get_name(self) -> str:
         """Retorna el nombre de la herramienta"""
         raise NotImplementedError("Subclasses must implement this method")
+
+    @abstractmethod
+    def _get_category(self) -> str:
+        """Retorna la categoría de la herramienta"""
+        raise NotImplementedError("Cada herramienta debe implementar su propia categoría")
 
     @abstractmethod
     def _get_command(self) -> str:
@@ -78,9 +85,9 @@ class GetModule(ABC):
         try:
             subprocess.run(self.command, shell=True)
         except subprocess.SubprocessError as e:
-            print(f"Error ejecutando {self.name}: {e}")
+            print(f"Error running {self.name}: {e}")
         except KeyboardInterrupt:
-            print("\nOperación cancelada por el usuario")
+            print("\nOperation cancelled by user")
 
     def cleanup_tmux_session(self):
         """
@@ -92,20 +99,20 @@ class GetModule(ABC):
             result = subprocess.run(['tmux', 'list-sessions'], capture_output=True, text=True)
             
             if result.returncode == 0 and result.stdout.strip():
-                print("\nSe ha detectado una sesión de tmux activa.")
-                close_session = input("¿Desea cerrar la sesión de tmux? (s/N): ").lower() == 's'
+                print("\nA tmux session has been detected.")
+                close_session = input("¿Do you want to close the tmux session? (y/N): ").lower() == 'y'
                 
                 if close_session:
-                    print("Cerrando sesión de tmux...")
+                    print("Closing tmux session...")
                     subprocess.run(['tmux', 'kill-session'], check=True)
-                    print("Sesión de tmux cerrada correctamente.")
+                    print("Session closed successfully.")
                 else:
-                    print("La sesión de tmux permanecerá activa.")
+                    print("Session will remain active.")
                     
         except subprocess.CalledProcessError as e:
-            print(f"Error al intentar gestionar la sesión de tmux: {e}")
+            print(f"Error trying to manage tmux session: {e}")
         except Exception as e:
-            print(f"Error inesperado al gestionar tmux: {e}")
+            print(f"Unexpected error managing tmux: {e}")
 
     def execute_with_cleanup(self, func, *args, **kwargs):
         """
@@ -162,7 +169,7 @@ class GetModule(ABC):
             return True
             
         except Exception as e:
-            print(f"Error al ejecutar el script: {e}")
+            print(f"Error running script: {e}")
             return False
         finally:
             self.cleanup_tmux_session()
@@ -172,36 +179,177 @@ class ToolModule(GetModule):
     modules = {}  # Variable de clase compartida
     
     @classmethod
-    def load_modules(cls) -> Dict[str, 'ToolModule']:
+    def check_module_compatibility(cls) -> dict:
         """
-        Carga dinámicamente todos los módulos disponibles
+        Verifica la compatibilidad de todos los módulos cargados.
+        
         Returns:
-            Dict[str, ToolModule]: Diccionario con los módulos cargados
+            dict: Diccionario con el estado de compatibilidad de los módulos
+            {
+                'compatible': [lista de módulos compatibles],
+                'incompatible': [lista de módulos incompatibles con sus razones]
+            }
         """
-        cls.modules = {}  # Reset modules
+        compatibility_status = {
+            'Compatible': [],
+            'Incompatible': []
+        }
+        
         modules_dir = Path(__file__).parent.parent / 'modules'
         
         if not modules_dir.exists():
-            print(f"[!] Directorio de módulos no encontrado en {modules_dir}")
-            return cls.modules
+            return compatibility_status
             
         for module_info in pkgutil.iter_modules([str(modules_dir)]):
             if module_info.name.startswith('_'):
                 continue
                 
             try:
+                # Intentar importar el módulo
                 module = importlib.import_module(f'modules.{module_info.name}')
+                module_class = None
+                
+                # Buscar la clase que hereda de ToolModule
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if (isinstance(attr, type) and
+                        issubclass(attr, ToolModule) and
+                        attr != ToolModule):
+                        module_class = attr
+                        break
+                
+                if not module_class:
+                    compatibility_status['Incompatible'].append({
+                        'name': module_info.name,
+                        'reason': 'No class found that inherits from ToolModule'
+                    })
+                    continue
+                    
+                # Verificar métodos abstractos requeridos
+                missing_methods = []
+                required_methods = [
+                    '_get_name',
+                    '_get_category',
+                    '_get_command',
+                    '_get_description',
+                    '_get_dependencies',
+                    'get_help',
+                    '_get_update_command',
+                    '_get_install_command',
+                    '_get_uninstall_command',
+                    '_get_script_path',
+                    'run_guided',
+                    'run_direct'
+                ]
+                
+                for method in required_methods:
+                    if not hasattr(module_class, method) or \
+                    not callable(getattr(module_class, method)):
+                        missing_methods.append(method)
+                
+                if missing_methods:
+                    compatibility_status['Incompatible'].append({
+                        'name': module_info.name,
+                        'reason': f'Missing the following required methods: {", ".join(missing_methods)}'
+                    })
+                    continue
+                    
+                # Verificar que los métodos devuelven los tipos correctos
+                try:
+                    instance = module_class()
+                    
+                    # Verificar tipos de retorno
+                    if not isinstance(instance._get_name(), str):
+                        raise TypeError('_get_name debe devolver str')
+                    if not isinstance(instance._get_command(), str):
+                        raise TypeError('_get_command debe devolver str')
+                    if not isinstance(instance._get_description(), str):
+                        raise TypeError('_get_description debe devolver str')
+                    if not isinstance(instance._get_dependencies(), list):
+                        raise TypeError('_get_dependencies debe devolver list')
+                    if not isinstance(instance.get_help(), dict):
+                        raise TypeError('get_help debe devolver dict')
+                        
+                    compatibility_status['Compatible'].append(module_info.name)
+                    
+                except Exception as e:
+                    compatibility_status['Incompatible'].append({
+                        'name': module_info.name,
+                        'reason': f'Error instantiating or verifying types: {str(e)}'
+                    })
+                    
+            except ImportError as e:
+                compatibility_status['Incompatible'].append({
+                    'name': module_info.name,
+                    'reason': f'Error importing module: {str(e)}'
+                })
+            except Exception as e:
+                compatibility_status['Incompatible'].append({
+                    'name': module_info.name,
+                    'reason': f'Unexpected error: {str(e)}'
+                })
+                
+        return compatibility_status
+
+    @classmethod
+    def load_modules(cls, initial_load: bool = False) -> Dict[str, 'ToolModule']:
+        """
+        Carga dinámicamente todos los módulos compatibles
+        
+        Args:
+            initial_load (bool): Indica si es la carga inicial del framework
+            
+        Returns:
+            Dict[str, ToolModule]: Diccionario con los módulos cargados
+        """
+        cls.modules = {}  # Reset modules
+        
+        # Verificar compatibilidad de módulos
+        compatibility_status = cls.check_module_compatibility()
+        
+        if initial_load:
+            num_compatible = len(compatibility_status['Compatible'])
+            num_incompatible = len(compatibility_status['Incompatible'])
+            
+            print(f"\n{Colors.WARNING}[*] Found {num_compatible} compatible modules and {num_incompatible} uncompatible modules")
+            
+            if compatibility_status['Incompatible']:
+                print(f"\n{Colors.FAIL}[!] Details of uncompatible modules:")
+                for module in compatibility_status['Incompatible']:
+                    print(f"  - {module['name']}: {module['reason']}")
+                
+                if not compatibility_status['Compatible']:
+                    print(f"{Colors.FAIL}[!] No compatible modules were found. The framework cannot continue.")
+                    sys.exit(1)
+                    
+                print(f"\n{Colors.WARNING}[?] ¿Do you want to continue with the loading of compatible modules? (y/N): ", end='')
+                try:
+                    response = input().lower()
+                    if response != 'y':
+                        print("[!] Operation cancelled by user.")
+                        sys.exit(0)
+                except KeyboardInterrupt:
+                    print("\n[!] Operation cancelled by user.")
+                    sys.exit(0)
+        
+        # Cargar solo los módulos compatibles
+        modules_dir = Path(__file__).parent.parent / 'modules'
+        for module_name in compatibility_status['Compatible']:
+            try:
+                module = importlib.import_module(f'modules.{module_name}')
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
                     if (isinstance(attr, type) and
                         issubclass(attr, ToolModule) and
                         attr != ToolModule):
                         tool = attr()
-                        cls.modules[tool.name.lower()] = tool  # Usar cls.modules
+                        cls.modules[tool.name.lower()] = tool
+                        TerminalManager.clear_screen()
                         break
-            except ImportError as e:
-                print(f"[!] Error cargando módulo {module_info.name}: {e}")
-                
+            except Exception as e:
+                if initial_load:
+                    print(f"[!] Error loading module {module_name}: {e}")
+        
         return cls.modules
 
     def check_installation(self) -> bool:
@@ -242,15 +390,15 @@ class ToolModule(GetModule):
                 if not os.access(script_path, os.X_OK):
                     try:
                         os.chmod(script_path, 0o755)
-                        print(f"[*] Permisos de ejecución agregados a: {script_path}")
+                        print(f"[*] Permissions added to: {script_path}")
                     except Exception as e:
-                        print(f"[!] No se pudieron establecer permisos de ejecución: {e}")
+                        print(f"[!] Not able to set permissions: {e}")
                         return False
                 
                 # 4.3 Verificar estructura de directorios
                 script_dir = script_path.parent
                 if not script_dir.exists():
-                    print(f"[!] Directorio de scripts no encontrado: {script_dir}")
+                    print(f"[!] Script directory not found: {script_dir}")
                     return False
                     
                 # 4.4 Buscar archivos comunes según el tipo de script
@@ -270,7 +418,7 @@ class ToolModule(GetModule):
                         found_files.append(file)
                 
                 if found_files:
-                    print(f"[*] Archivos adicionales encontrados: {', '.join(found_files)}")
+                    print(f"[*] Additional files found: {', '.join(found_files)}")
                 
                 # 4.5 Para scripts, si tiene todas las dependencias y el script existe, consideramos que está instalado
                 self._installed = True
@@ -281,11 +429,11 @@ class ToolModule(GetModule):
                 return self._verify_tool_specific_requirements()
                 
             # 6. Si llegamos aquí y no hay forma de verificar, asumimos que no está instalado
-            print("[!] No se pudo determinar el estado de instalación")
+            print("[!] Not able to determine installation status")
             return False
             
         except Exception as e:
-            print(f"[!] Error durante la verificación de instalación: {e}")
+            print(f"[!] Error during installation verification: {e}")
             return False
 
     @property
@@ -319,25 +467,25 @@ class ToolModule(GetModule):
             print(result.stdout)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error ejecutando {cmd}")
-            print(f"Salida de error: {e.stderr}")
+            print(f"Error executing {cmd}")
+            print(f"Error output: {e.stderr}")
             return False
 
     def _execute_package_commands(self, tool_name: str, command_type: str) -> None:
         """Ejecuta comandos de gestión de paquetes"""
         module = ToolModule.modules.get(tool_name.lower())
         if not module:
-            print(f"[!] Error: Herramienta '{tool_name}' no encontrada")
+            print(f"[!] Error: Tool '{tool_name}' not found")
             return
 
         # Verificar estado de instalación según el comando
         is_installed = module.check_installation()
         
         if command_type in ['update', 'remove'] and not is_installed:
-            print(f"[!] Error: La herramienta '{tool_name}' no está instalada")
+            print(f"[!] Error: Tool '{tool_name}' is not installed")
             return
         elif command_type == 'install' and is_installed:
-            print(f"[!] La herramienta '{tool_name}' ya está instalada")
+            print(f"[!] Tool '{tool_name}' is already installed")
             return
 
         pkg_manager = self.get_package_manager()[0]
@@ -351,13 +499,13 @@ class ToolModule(GetModule):
         
         method_name = command_type_to_method.get(command_type)
         if not method_name:
-            print(f"[!] Tipo de comando no válido: {command_type}")
+            print(f"[!] Invalid command type: {command_type}")
             return
             
         # Obtener el comando específico para este gestor de paquetes
         commands = getattr(module, method_name)(pkg_manager)
         if not commands:
-            print(f"[!] No hay comando de {command_type} para el gestor {pkg_manager}")
+            print(f"[!] There is no {command_type} command for {pkg_manager}")
             return
         
         # Convertir un único comando a lista
@@ -367,14 +515,14 @@ class ToolModule(GetModule):
         # Ejecutar los comandos
         success = True
         for cmd in commands:
-            print(f"\n[*] Ejecutando: {cmd}")
+            print(f"\n[*] Executing: {cmd}")
             if not self._run_command(cmd):
-                print(f"[!] Error al ejecutar: {cmd}")
+                print(f"[!] Error running: {cmd}")
                 success = False
                 break
         
         if not success:
-            print(f"[!] Operación {command_type} interrumpida")
+            print(f"[!] Operation {command_type} interrupted")
         else:
             # Verificar instalación después del comando
             if hasattr(module, 'check_installation'):
@@ -382,9 +530,9 @@ class ToolModule(GetModule):
                 is_installed = module.check_installation()
                 
                 if command_type == 'install':
-                    print(f"[+] {tool_name} {'instalado' if is_installed else 'no instalado'} correctamente")
+                    print(f"[+] {tool_name} {'installed' if is_installed else 'not installed'} successfully")
                 elif command_type == 'remove':
-                    print(f"[+] {tool_name} {'desinstalado' if not is_installed else 'no desinstalado'} correctamente")
+                    print(f"[+] {tool_name} {'uninstalled' if not is_installed else 'not uninstalled'} successfully")
 
     def get_package_manager(self) -> tuple:
         """Detecta el gestor de paquetes del sistema"""

@@ -9,7 +9,7 @@ from core.colors import Colors
 
 def signal_handler(sig, frame):
     """Manejador de señal para Ctrl+C"""
-    print("\n\n[!] Saliendo del framework...")
+    print("\n\n[!] Exiting the framework...")
     sys.exit(0)
 
 def get_sudo_permission():
@@ -38,6 +38,7 @@ def get_sudo_permission():
         output, error = process.communicate(input=password.encode())
         
         if process.returncode == 0:
+            TerminalManager.clear_screen()
             return True
         else:
             print("{Colors.FAIL}[!] Incorrect password{Colors.ENDC}")
@@ -81,6 +82,10 @@ def setup_environment():
 
 def main():
     """Punto de entrada principal del framework"""
+    # Limpiar terminal antes de iniciar
+    from core.terminal_management import TerminalManager
+    TerminalManager.clear_screen()
+    
     # Verificar privilegios de root
     if not get_sudo_permission():
         sys.exit(1)
@@ -91,10 +96,22 @@ def main():
     
     try:
         from core.framework_interface import FrameworkInterface
+        from core.base import ToolModule
+        
+        # Verificar y cargar módulos con la bandera initial_load=True
+        try:
+            modules = ToolModule.load_modules(initial_load=True)
+            if not modules:
+                print(f"{Colors.FAIL}[!] No modules were loaded. The framework cannot continue.{Colors.ENDC}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"{Colors.FAIL}[!] Error loading modules: {e}{Colors.ENDC}")
+            sys.exit(1)
+            
         framework = FrameworkInterface()
         framework.cmdloop()
     except KeyboardInterrupt:
-        print("\n{Colors.WARNING}[!] Exiting framework...{Colors.ENDC}")
+        print(f"\n{Colors.WARNING}[!] Exiting the framework...{Colors.ENDC}")
         sys.exit(0)
     except Exception as e:
         print(f"{Colors.FAIL}[!] Critical error: {e}{Colors.ENDC}")

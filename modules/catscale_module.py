@@ -1,4 +1,5 @@
 from core.base import ToolModule
+from core.colors import Colors
 import subprocess
 import os
 import shutil
@@ -11,16 +12,18 @@ class CatScaleModule(ToolModule):
         self.repo_url = "https://github.com/sPROFFEs/LinuxCatScale"
         self.base_script_path = Path(__file__).parent.parent / "modules" / "scripts"
         super().__init__()
-
-        
+  
     def _get_name(self):
         return "catscale"
+
+    def _get_category(self) -> str:
+        return "Forensics"
 
     def _get_command(self):
         return "catscale"
 
     def _get_description(self):
-        return "Herramienta para recolección forense en sistemas Linux que captura datos volátiles, logs, configuraciones y realiza hashes de archivos"
+        return "Forensics tool for Linux that captures mobile data, logs, configurations and hashes files"
 
     def _get_dependencies(self):
         return ["tar", "sha1sum", "find", "grep"]

@@ -20,23 +20,23 @@ class FrameworkInterface(cmd.Cmd):
     username = getpass.getuser()
     current_time = datetime.now().strftime("%H:%M:%S")
 
-    intro = f'''{Colors.PRIMARY}
+    intro = f'''{Colors.CYAN}
     ╔══════════════════════════════════════════════════════════════════════╗
-    ║    {Colors.ACCENT}╭───────────────────────────────────────────────────────────╮{Colors.PRIMARY}     ║
-    ║    {Colors.ACCENT}│{Colors.SECONDARY}              CoreSecurityFramework v1.0                   {Colors.ACCENT}│     {Colors.PRIMARY}║
-    ║    {Colors.ACCENT}╰───────────────────────────────────────────────────────────╯{Colors.PRIMARY}     ║
+    ║    {Colors.ACCENT}╭───────────────────────────────────────────────────────────╮{Colors.CYAN}     ║
+    ║    {Colors.ACCENT}│{Colors.SECONDARY}                  {Colors.BOLD}CoreSecurityFramework                    {Colors.ACCENT}│     {Colors.CYAN}║
+    ║    {Colors.ACCENT}╰───────────────────────────────────────────────────────────╯{Colors.CYAN}     ║
     ╠══════════════════════════════════════════════════════════════════════╣
     ║                                                                      ║
-    ║ {Colors.SUCCESS}●{Colors.PRIMARY} Sistema  {Colors.TEXT}Presiona {Colors.HIGHLIGHT}'help'{Colors.TEXT} o {Colors.HIGHLIGHT}'?'{Colors.TEXT} para ver comandos     {Colors.PRIMARY}              ║
-    ║ {Colors.WARNING}●{Colors.PRIMARY} Tools    {Colors.TEXT}Escribe {Colors.HIGHLIGHT}'list'{Colors.TEXT} para ver herramientas        {Colors.PRIMARY}              ║
-    ║ {Colors.ERROR}●{Colors.PRIMARY} Sessions {Colors.TEXT}Usa {Colors.HIGHLIGHT}'sessions'{Colors.TEXT} para gestionar sesiones    {Colors.PRIMARY}                ║
-    ║                                                                      ║
-    ╚══════════════════════════════════════════════════════════════════════╝
-    {Colors.WARNING}Started at {Colors.TEXT} {current_time}  |  Licensed under MIT{Colors.ENDC}
-    {Colors.TEXT}CoreSecurityFramework v1.0 - Developed with {Colors.ACCENT} ♥ {Colors.PRIMARY}by {Colors.SECONDARY} pr0ff3{Colors.ENDC}
+    ║           {Colors.SUCCESS}●{Colors.PRIMARY} System  {Colors.TEXT}Type {Colors.HIGHLIGHT}'help'{Colors.TEXT} or {Colors.HIGHLIGHT}'?'{Colors.TEXT} to view commands     {Colors.CYAN}         ║
+    {Colors.CYAN}║           {Colors.WARNING}●{Colors.PRIMARY} Tools    {Colors.TEXT}Type {Colors.HIGHLIGHT}'list'{Colors.TEXT} to view tools        {Colors.CYAN}               ║
+    {Colors.CYAN}║           {Colors.ERROR}●{Colors.PRIMARY} Sessions {Colors.TEXT}Use {Colors.HIGHLIGHT}'sessions'{Colors.TEXT} to manage sessions    {Colors.CYAN}           ║
+    {Colors.CYAN}║                                                                      ║
+    {Colors.CYAN}╚══════════════════════════════════════════════════════════════════════╝
+    {Colors.TEXT}Started at {current_time}  |  Licensed under GNU GPLv3{Colors.ENDC}
+    {Colors.TEXT}CoreSecurityFramework v1.1  {Colors.ACCENT}Developed with {Colors.ACCENT} ♥ {Colors.PRIMARY}by {Colors.SECONDARY} CoreSecurity Team{Colors.ENDC}
     '''
 
-    prompt = f'{Colors.PRIMARY}╭─{Colors.SECONDARY}({Colors.HIGHLIGHT}{username}@CoreSec{Colors.SECONDARY}){Colors.PRIMARY}─{Colors.SUBTLE}[{Colors.TEXT}#{Colors.SUBTLE}]{Colors.PRIMARY}\n╰─{Colors.ACCENT}≫ {Colors.TEXT}'
+    prompt = f'{Colors.SECONDARY}╭─{Colors.SECONDARY}({Colors.PRIMARY}{username}{Colors.ACCENT}@CoreSec{Colors.SECONDARY}){Colors.SECONDARY}─{Colors.SUBTLE}[{Colors.FAIL}#{Colors.SUBTLE}]{Colors.SECONDARY}\n╰─{Colors.ACCENT}≫ {Colors.TEXT}'
     
     def __init__(self):
 
@@ -53,7 +53,7 @@ class FrameworkInterface(cmd.Cmd):
             first_module = next(iter(self.modules.values()))
             first_module._execute_package_commands(tool_name, command_type)
         else:
-            print("[!] Error: No hay módulos cargados")
+            print("[!] Error: No modules loaded")
 
     def handle_sigint(self, signum, frame):
         """Manejador personalizado para Ctrl+C"""
@@ -73,81 +73,18 @@ class FrameworkInterface(cmd.Cmd):
     def do_exit(self, arg: str) -> bool:
         """Salir del framework"""
         if self.session_manager.sessions:
-            print(f"\n{Colors.WARNING}[!] Hay sesiones activas. ¿Deseas salir? (s/N){Colors.ENDC}")
-            if input().lower() != 's':
+            print(f"\n{Colors.WARNING}[!] There are active sessions. Do you want to exit? (y/N){Colors.ENDC}")
+            if input().lower() != 'y':
                 return False
 
-        print(f"\n{Colors.CYAN}[*] Should we fear hackers? Intention is at the heart of this discussion.{Colors.ENDC}")
+        print(f"\n{Colors.SUBTLE}[*] Should we fear hackers? Intention is at the heart of this discussion.{Colors.ENDC}")
         return True
-
-    def do_list(self, arg: str) -> None:
-        """
-        Lista elementos del framework en formato de tabla.
-        Uso: list [tools|sessions]
-        """
-        args = arg.split()
-        if not args:
-            print(f"{Colors.FAIL}[!] Error: Especifica qué quieres listar (tools|sessions){Colors.ENDC}")
-            return
-
-        if args[0].lower() == "tools":
-            print(f"\n{Colors.CYAN}[*] Herramientas disponibles:{Colors.ENDC}")
-            
-            # Actualizar módulos
-            self.modules = ToolModule.load_modules()
-            
-            # Crear tabla
-            header = f'''
-╔══════════════════╦═══════════════╦═══════════════════════════════════╦════════════════════════╗
-║ {Colors.BOLD}Nombre{Colors.ENDC}           ║ {Colors.BOLD}Estado{Colors.ENDC}        ║ {Colors.BOLD}Descripción{Colors.ENDC}                       ║ {Colors.BOLD}Dependencias{Colors.ENDC}           ║
-╠══════════════════╬═══════════════╬═══════════════════════════════════╬════════════════════════╣'''
-            print(header)
-
-            for name, module in self.modules.items():
-                # Actualizar estado de instalación
-                module.check_installation()
-                
-                # Preparar estado con color y padding específico
-                if module.installed:
-                    status = f"{Colors.GREEN}Instalado{Colors.ENDC}".ljust(22)  # 8 chars + color codes
-                else:
-                    status = f"{Colors.FAIL}No instalado{Colors.ENDC}".ljust(22)  # 11 chars + color codes
-                
-                # Preparar dependencias
-                deps = ', '.join(module.dependencies) if module.dependencies else "Ninguna"
-                
-                # Truncar textos largos
-                name_trunc = module.name[:16].ljust(16)
-                desc_trunc = module.description[:33].ljust(33)
-                deps_trunc = deps[:20].ljust(20)
-                
-                # Imprimir fila
-                print(f"║ {name_trunc} ║ {status} ║ {desc_trunc} ║ {deps_trunc}   ║")
-
-            # Pie de tabla
-            footer = "╚══════════════════╩═══════════════╩═══════════════════════════════════╩════════════════════════╝"
-            print(footer)
-            
-            # Mostrar información adicional de comando
-            print(f"\n{Colors.SUBTLE}Para usar una herramienta: {Colors.HIGHLIGHT}use <nombre>{Colors.ENDC}")
-
-        elif args[0].lower() == "sessions":
-            print(f"\n{Colors.CYAN}[*] Sesiones activas:{Colors.ENDC}")
-            
-            # Llamar al manejador de sesiones modificado para usar este formato
-            self.session_manager.list_sessions()
-                        
-            # Información adicional
-            print(f"\n{Colors.SUBTLE}Para interactuar con una sesión: {Colors.HIGHLIGHT}session <id>{Colors.ENDC}")
-            
-        else:
-            print(f"{Colors.FAIL}[!] Error: Opción no válida. Usa 'tools' o 'sessions'{Colors.ENDC}")
 
     def do_install(self, arg: str) -> None:
         """Instala una herramienta"""
         args = arg.split()
         if not args:
-            print(f"{Colors.FAIL}[!] Error: Debes especificar una herramienta{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: You must specify a tool{Colors.ENDC}")
             return
         self.execute_pkg(args[0], 'install')
 
@@ -155,7 +92,7 @@ class FrameworkInterface(cmd.Cmd):
         """Actualiza una herramienta"""
         args = arg.split()
         if not args:
-            print(f"{Colors.FAIL}[!] Error: Debes especificar una herramienta{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: Debes You must specify a tool{Colors.ENDC}")
             return
         self.execute_pkg(args[0], 'update')
 
@@ -163,7 +100,7 @@ class FrameworkInterface(cmd.Cmd):
         """Desinstala una herramienta"""
         args = arg.split()
         if not args:
-            print(f"{Colors.FAIL}[!] Error: Debes especificar una herramienta{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: You must specify a tool{Colors.ENDC}")
             return
         self.execute_pkg(args[0], 'remove')
 
@@ -173,8 +110,8 @@ class FrameworkInterface(cmd.Cmd):
         Uso: use <tool> | use session <id>"""
         args = arg.split()
         if not args:
-            print(f"{Colors.FAIL}[!] Error: Comando incompleto{Colors.ENDC}")
-            print("Uso: use <tool> | use session <id>")
+            print(f"{Colors.FAIL}[!] Error: Incorrect command{Colors.ENDC}")
+            print("Usage: use <tool> | use session <id>")
             return
 
         if args[0].lower() == "session" and len(args) > 1:
@@ -186,27 +123,27 @@ class FrameworkInterface(cmd.Cmd):
         """Método auxiliar para ejecutar una herramienta"""
         module = self.modules.get(tool_name.lower())
         if not module:
-            print(f"{Colors.FAIL}[!] Error: Herramienta '{tool_name}' no encontrada{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: Tool '{tool_name}' not found{Colors.ENDC}")
             return
 
         if not module.installed:
-            print(f"{Colors.FAIL}[!] Error: La herramienta {tool_name} no está instalada{Colors.ENDC}")
-            print(f"{Colors.CYAN}[*] Puedes instalarla con el comando: install {tool_name}{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: Tool {tool_name} is not installed{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] You can install it with the command: install {tool_name}{Colors.ENDC}")
             return
 
         # Mostramos la información inicial al usuario
-        print(f"\n{Colors.CYAN}[*] Iniciando {module.name} en una nueva sesión tmux{Colors.ENDC}")
-        print(f"\n{Colors.GREEN}Selecciona el modo de ejecución:{Colors.ENDC}")
-        print(f"{Colors.GREEN}1:{Colors.ENDC} Modo Guiado")
-        print(f"{Colors.GREEN}2:{Colors.ENDC} Modo Directo")
-        print(f"{Colors.GREEN}0:{Colors.ENDC} Volver al menú principal")
+        print(f"\n{Colors.CYAN}[*] Initializing {module.name} in a new tmux session{Colors.ENDC}")
+        print(f"\n{Colors.GREEN}Choose execution mode:{Colors.ENDC}")
+        print(f"{Colors.GREEN}1:{Colors.ENDC} Guided mode")
+        print(f"{Colors.GREEN}2:{Colors.ENDC} Direct mode")
+        print(f"{Colors.GREEN}0:{Colors.ENDC} Cancel")
         
         while True:
             try:
-                mode = input(f"\n{Colors.BOLD}Selecciona modo (1/2/3): {Colors.ENDC}").strip()
+                mode = input(f"\n{Colors.BOLD}Choose mode (1/2/3): {Colors.ENDC}").strip()
                 if mode in ('1', '2', '0'):
                     break
-                print(f"{Colors.FAIL}[!] Opción no válida{Colors.ENDC}")
+                print(f"{Colors.FAIL}[!] Invalid option{Colors.ENDC}")
             except KeyboardInterrupt:
                 print("\n")
                 return
@@ -231,28 +168,28 @@ class FrameworkInterface(cmd.Cmd):
                 f"tool.{'run_guided' if mode == '1' else 'run_direct'}()\""
             )
 
-            cmd = f"cd {framework_root} && {python_cmd}; exec bash -i"   
+            cmd = f"cd {framework_root} && TERM=xterm-256color python3 -u -c \"import sys; import readline; sys.path.append('{framework_root}'); from modules.{module_name} import {class_name}; tool = {class_name}(); tool.{'run_guided' if mode == '1' else 'run_direct'}()\"; exec bash -l"   
 
-            print(f"\n{Colors.CYAN}[*] Iniciando sesión tmux...{Colors.ENDC}")
-            print(f"{Colors.CYAN}[*] Recuerda:{Colors.ENDC}")
-            print(f"  • Usa {Colors.BOLD}Ctrl+b d{Colors.ENDC} para volver al framework")
-            print(f"  • Usa {Colors.BOLD}sessions use {session.session_id}{Colors.ENDC} para reconectar")
+            print(f"\n{Colors.CYAN}[*] Initializing tmux session...{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] Remember:{Colors.ENDC}")
+            print(f" • Use {Colors.BOLD}Ctrl+b d{Colors.ENDC} to return to the framework")
+            print(f" • Use {Colors.BOLD}sessions use {session.session_id}{Colors.ENDC} to reconnect")
             
             success = TerminalManager.run_in_tmux(
                 cmd, 
                 session.name,
-                f"{module.name} - {'Guiado' if mode == '1' else 'Directo'}"
+                f"{module.name} - {'Guided' if mode == '1' else 'Direct'}"
             )
             
             if success:
-                print(f"\n{Colors.GREEN}[✓] Has vuelto al framework{Colors.ENDC}")
-                session.add_to_history(f"Sesión tmux: {'Guiado' if mode == '1' else 'Directo'}")
+                print(f"\n{Colors.GREEN}[✓] You have returned to the framework{Colors.ENDC}")
+                session.add_to_history(f"Tmux session: {'Guided' if mode == '1' else 'Direct'}")
             else:
-                print(f"{Colors.FAIL}[!] Error al crear sesión tmux{Colors.ENDC}")
+                print(f"{Colors.FAIL}[!] Error creating tmux session{Colors.ENDC}")
                 session.active = False
                             
         except Exception as e:
-            print(f"{Colors.FAIL}[!] Error al ejecutar la herramienta: {e}{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error executing tool: {e}{Colors.ENDC}")
             session.active = False
             session.log(f"Error: {str(e)}")
             import traceback
@@ -270,8 +207,8 @@ class FrameworkInterface(cmd.Cmd):
         """
         args = arg.split()
         if not args:
-            print(f"{Colors.FAIL}[!] Error: Comando incompleto{Colors.ENDC}")
-            print("Uso: kill session <id> | kill all sessions")
+            print(f"{Colors.FAIL}[!] Error: incorrect command{Colors.ENDC}")
+            print("Usage: kill session <id> | kill all sessions")
             return
 
         if args[0].lower() == "all" and len(args) > 1 and args[1].lower() == "sessions":
@@ -280,8 +217,8 @@ class FrameworkInterface(cmd.Cmd):
             session_id = args[1]
             self.session_manager.kill_session(session_id)
         else:
-            print(f"{Colors.FAIL}[!] Error: Comando incorrecto{Colors.ENDC}")
-            print("Uso: kill session <id> | kill all sessions")
+            print(f"{Colors.FAIL}[!] Error: Incorrect command{Colors.ENDC}")
+            print("Usage: kill session <id> | kill all sessions")
 
     def do_clear(self, arg: str) -> None:
         """
@@ -294,8 +231,8 @@ class FrameworkInterface(cmd.Cmd):
         elif arg.lower() == "sessions":
             self.session_manager.clear_sessions()
         else:
-            print(f"{Colors.FAIL}[!] Error: Comando incorrecto{Colors.ENDC}")
-            print("Uso: clear (limpia pantalla) | clear sessions")
+            print(f"{Colors.FAIL}[!] Error: Incorrect command{Colors.ENDC}")
+            print("Usage: clear (clear screen) | clear sessions")
 
     def do_sessions(self, arg: str) -> None:
         """Gestiona las sesiones activas"""
@@ -314,12 +251,12 @@ class FrameworkInterface(cmd.Cmd):
         elif command == "use" and len(args) > 1:
             self.session_manager.use_session(args[1])
         else:
-            print(f"\n{Colors.CYAN}Uso de sessions:{Colors.ENDC}")
-            print("  sessions           - Lista todas las sesiones")
-            print("  sessions use <id>  - Conecta a una sesión específica")
-            print("  sessions kill <id> - Termina una sesión específica")
-            print("  sessions kill all  - Termina todas las sesiones")
-            print("  sessions clear     - Gestiona la limpieza de sesiones")
+            print(f"\n{Colors.CYAN}Sessions usage:{Colors.ENDC}")
+            print(" sessions           - List all sessions")
+            print(" sessions use <id>  - Connect to a specific session")
+            print(" sessions kill <id> - Terminate a specific session")
+            print(" sessions kill all  - Terminate all sessions")
+            print(" sessions clear     - Manage sessions cleanup")
 
     def complete_kill(self, text, line, begidx, endidx):
         """Autocompletado para el comando kill"""
@@ -358,22 +295,22 @@ class FrameworkInterface(cmd.Cmd):
 
     def _show_tmux_help(self):
         """Muestra ayuda sobre el uso de tmux"""
-        print(f"\n{Colors.CYAN}[*] Comandos útiles de tmux:{Colors.ENDC}")
-        print("  • Ctrl+b d          - Desconectar de la sesión actual (volver al framework)")
-        print("  • Ctrl+b c          - Crear una nueva ventana")
-        print("  • Ctrl+b n          - Ir a la siguiente ventana")
-        print("  • Ctrl+b p          - Ir a la ventana anterior")
-        print("  • Ctrl+b [0-9]      - Ir a la ventana número [0-9]")
-        print("  • Ctrl+b %          - Dividir la ventana verticalmente")
-        print("  • Ctrl+b \"          - Dividir la ventana horizontalmente")
-        print("  • Ctrl+b flechas    - Moverse entre paneles")
-        print(f"\n{Colors.CYAN}[*] Desde el framework:{Colors.ENDC}")
-        print("  • sessions          - Ver todas las sesiones")
-        print("  • sessions use <id> - Conectar a una sesión específica")
-        print("  • sessions kill <id>- Terminar una sesión")
-        print("  • help tmux         - Mostrar esta ayuda")
-        print(f"\n{Colors.CYAN}[*] Para más información:{Colors.ENDC}")
-        print("  • https://tmuxcheatsheet.com/")
+        print(f"\n{Colors.CYAN}[*] Useful tmux commands:{Colors.ENDC}")
+        print(" • Ctrl+b d          - Detach from current session (return to framework)")
+        print(" • Ctrl+b c          - Create a new window")
+        print(" • Ctrl+b n          - Go to next window") 
+        print(" • Ctrl+b p          - Go to previous window")
+        print(" • Ctrl+b [0-9]      - Go to window number [0-9]")
+        print(" • Ctrl+b %          - Split window vertically")
+        print(" • Ctrl+b \"          - Split window horizontally")
+        print(" • Ctrl+b arrows     - Move between panes")
+        print(f"\n{Colors.CYAN}[*] From the framework:{Colors.ENDC}")
+        print(" • sessions          - View all sessions")
+        print(" • sessions use <id> - Connect to a specific session")
+        print(" • sessions kill <id>- Terminate a session")
+        print(" • help tmux         - Show this help")
+        print(f"\n{Colors.CYAN}[*] For more information:{Colors.ENDC}")
+        print(" • https://tmuxcheatsheet.com/")
         print(f"\n")
 
     def do_help(self, arg: str) -> None:
@@ -383,14 +320,14 @@ class FrameworkInterface(cmd.Cmd):
             """Imprime el encabezado principal del framework"""
             print(f'''
 {Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
-║  {Colors.SECONDARY}CoreSecurityFramework{Colors.PRIMARY} - Panel de Ayuda                    ║
+║  {Colors.SECONDARY}CoreSecurityFramework{Colors.PRIMARY} - Help Panel                        ║
 ╚════════════════════════════════════════════════════════════╝{Colors.ENDC}''')
 
         def print_section_header(title: str):
             """Imprime el encabezado de una sección"""
             print(f'''
 {Colors.PRIMARY}╭────────────────────────────────────────────────────────────╮
-│  {Colors.BOLD}{title}{Colors.ENDC}{Colors.PRIMARY}                                   │                                       
+│  {Colors.SECONDARY}{title}{Colors.ENDC}{Colors.PRIMARY}                                   │                                       
 ╰────────────────────────────────────────────────────────────╯{Colors.ENDC}''')
 
         def print_command(cmd: str, desc: str):
@@ -458,15 +395,12 @@ class FrameworkInterface(cmd.Cmd):
             # Comandos del framework
             command_help = {
                 "install": {
-                    "title": "Instalación de Herramientas    ",
-                    "usage": "install <nombre> [--show-cmd]",
-                    "desc": "Instala una herramienta en el sistema.",
-                    "options": {
-                        "--show-cmd": "Muestra el comando que se ejecutaría sin realizarlo"
-                    },
+                    "title": "Tool Installation              ",
+                    "usage": "install <tool name>",
+                    "desc": "Install a tool in the system.",
                     "examples": [
                         "install nmap",
-                        "install john --show-cmd"
+                        "install john",
                     ]
                 },
                 # ... resto de comandos ...
@@ -479,19 +413,19 @@ class FrameworkInterface(cmd.Cmd):
 ║  {Colors.SECONDARY}{help_data["title"]}{Colors.PRIMARY}                           ║
 ╚════════════════════════════════════════════════════════════╝{Colors.ENDC}''')
                 
-                print(f"\n{Colors.BOLD}USO:{Colors.ENDC}")
+                print(f"\n{Colors.BOLD}Usage:{Colors.ENDC}")
                 print(f"  {help_data['usage']}")
                 
-                print(f"\n{Colors.BOLD}DESCRIPCIÓN:{Colors.ENDC}")
+                print(f"\n{Colors.BOLD}Description:{Colors.ENDC}")
                 print(f"  {help_data['desc']}")
                 
                 if "options" in help_data:
-                    print_section_header("OPCIONES               ")
+                    print_section_header("OPTIONS               ")
                     for opt, desc in help_data["options"].items():
                         print_option(opt, desc)
                 
                 if "examples" in help_data:
-                    print_section_header("EJEMPLOS               ")
+                    print_section_header("Examples               ")
                     for example in help_data["examples"]:
                         print_example(example)
             else:
@@ -501,26 +435,310 @@ class FrameworkInterface(cmd.Cmd):
             # Menú principal de ayuda
             print_main_header()
             
-            print_section_header("GESTIÓN DE HERRAMIENTAS")
-            print_command("list", "Lista todas las herramientas disponibles")
-            print_command("install", "Instala una herramienta específica")
-            print_command("remove", "Desinstala una herramienta")
-            print_command("update", "Actualiza herramientas o el sistema")
+            print_section_header("Tools Management       ")
+            print_command("show category", "Show all categories")
+            print_command("show <category>", "Show all tools in a specific category")
+            print_command("search <tool name>", "Search for a tool by name or description")
+            print_command("install <tool name>", "Install a specific tool")
+            print_command("remove <tool name>", "Remove a specific tool")
+            print_command("update <tool name>", "Update a specific tool")
             
-            print_section_header("USO DE HERRAMIENTAS    ")
-            print_command("use", "Ejecuta una herramienta en modo interactivo")
-            print_command("sessions", "Gestiona las sesiones activas")
+            print_section_header("Tools Usage            ")
+            print_command("use <tool name>", "Run a tool in interactive mode")
+            print_command("sessions", "Manage active sessions")
             
-            print_section_header("SISTEMA                ")
-            print_command("clear", "Limpia la pantalla")
-            print_command("exit", "Sale del framework")
-            print_command("help", "Muestra este panel de ayuda")
+            print_section_header("System                 ")
+            print_command("clear", "Clear the screen")
+            print_command("exit", "Exit the framework")
+            print_command("help", "Show this help panel")
+
 
             print(f'''
 {Colors.PRIMARY}╭────────────────────────────────────────────────────────────╮
-│  {Colors.TEXT}Para más información sobre un comando específico:{Colors.ENDC}{Colors.PRIMARY}         │
-│  {Colors.SECONDARY}help <comando>{Colors.PRIMARY}                                            │
+│  {Colors.TEXT}For more information about a specific command:{Colors.ENDC}{Colors.PRIMARY}            │
+│  {Colors.SECONDARY}help <command>{Colors.PRIMARY}                                            │
 │                                                            │      
-│  {Colors.TEXT}Para ver los atajos de tmux:{Colors.ENDC}{Colors.PRIMARY}                              │
+│  {Colors.TEXT}To view tmux shortcuts:{Colors.ENDC}{Colors.PRIMARY}                                   │
 │  {Colors.SECONDARY}help tmux{Colors.PRIMARY}                                                 │
 ╰────────────────────────────────────────────────────────────╯{Colors.ENDC}''')
+            print("\n")
+
+
+    def _calculate_description_width(self, tools: List[ToolModule]) -> int:
+        """
+        Calcula el ancho óptimo para la columna de descripción
+        
+        Args:
+            tools: Lista de herramientas
+            
+        Returns:
+            int: Ancho óptimo para la columna de descripción
+        """
+        # Obtener la longitud de la descripción más larga
+        max_desc_length = max(len(tool.description) for tool in tools)
+        
+        # Definir límites
+        MIN_WIDTH = 33  # Ancho mínimo
+        MAX_WIDTH = 60  # Ancho máximo
+        
+        # Calcular ancho óptimo
+        optimal_width = min(max(max_desc_length, MIN_WIDTH), MAX_WIDTH)
+        
+        return optimal_width
+
+    def _create_table_border(self, desc_width: int, border_char: str) -> str:
+        """
+        Crea una línea de borde para la tabla
+        
+        Args:
+            desc_width: Ancho de la columna de descripción
+            border_char: Carácter para el borde (═, ╔, ╚, etc)
+            
+        Returns:
+            str: Línea de borde formateada
+        """
+        return f"{Colors.CYAN}{border_char}══════════════════{border_char}═══════════════{border_char}{'═' * desc_width}═{border_char}════════════════════{border_char}"
+
+    def _create_separator_line(self, desc_width: int) -> str:
+        """
+        Crea una línea separadora entre herramientas
+        
+        Args:
+            desc_width: Ancho de la columna de descripción
+            
+        Returns:
+            str: Línea separadora formateada
+        """
+        return f"{Colors.CYAN}╟──────────────────╫───────────────╫{'─' * desc_width}─╫────────────────────╢"
+
+    def _display_tools_table(self, tools_to_show: List[ToolModule], page: int = 1, items_per_page: int = 5) -> None:
+        """
+        Muestra una tabla paginada de herramientas con descripción ajustable
+        
+        Args:
+            tools_to_show: Lista de herramientas a mostrar
+            page: Número de página actual
+            items_per_page: Número de items por página
+        """
+        if not tools_to_show:
+            print(f"{Colors.WARNING}[!] No tools were found{Colors.ENDC}")
+            return
+            
+        # Calcular ancho de descripción y paginación
+        desc_width = self._calculate_description_width(tools_to_show)
+        total_items = len(tools_to_show)
+        total_pages = (total_items + items_per_page - 1) // items_per_page
+        
+        if page > total_pages:
+            page = total_pages
+        
+        start_idx = (page - 1) * items_per_page
+        end_idx = min(start_idx + items_per_page, total_items)
+        
+        # Crear encabezado dinámico
+        top_border = self._create_table_border(desc_width, "╔")
+        header_text = f"{Colors.CYAN}║ {Colors.ACCENT}Name{Colors.ENDC}             {Colors.CYAN}║ {Colors.ACCENT}Status{Colors.ENDC}        {Colors.CYAN}║ {Colors.ACCENT}Description{' ' * (desc_width - 11)}{Colors.ENDC}{Colors.CYAN}║ {Colors.ACCENT}Category{Colors.ENDC}           {Colors.CYAN}║"
+        mid_border = self._create_table_border(desc_width, "╠")
+        bottom_border = self._create_table_border(desc_width, "╚")
+        separator = self._create_separator_line(desc_width)
+        
+        print(f"\n{top_border}")
+        print(header_text)
+        print(mid_border)
+        
+        # Mostrar herramientas
+        tools_in_page = list(tools_to_show[start_idx:end_idx])
+        for i, tool in enumerate(tools_in_page):
+            # Preparar estado con color
+            if tool.installed:
+                status = f"{Colors.GREEN}Installed{Colors.ENDC}".ljust(22)
+            else:
+                status = f"{Colors.FAIL}Not installed{Colors.ENDC}".ljust(22)
+                
+            # Formatear descripción para ajustarse al ancho
+            description = tool.description
+            desc_lines = []
+            while description:
+                if len(description) <= desc_width:
+                    desc_lines.append(description.ljust(desc_width))
+                    break
+                # Buscar el último espacio antes del límite
+                split_point = description[:desc_width].rfind(' ')
+                if split_point == -1:  # No hay espacios, cortar en el límite
+                    split_point = desc_width
+                desc_lines.append(description[:split_point].ljust(desc_width))
+                description = description[split_point:].lstrip()
+            
+            # Si no hay líneas (descripción vacía), añadir una línea en blanco
+            if not desc_lines:
+                desc_lines = [' ' * desc_width]
+                
+            # Imprimir primera línea con toda la información
+            name_trunc = tool.name[:16].ljust(16)
+            cat_trunc = tool._get_category()[:20].ljust(17)
+            print(f"{Colors.CYAN}║ {Colors.SECONDARY}{name_trunc}{Colors.ENDC} {Colors.CYAN}║ {status} {Colors.CYAN}║ {Colors.TEXT}{desc_lines[0]}{Colors.ENDC}{Colors.CYAN}║ {Colors.SECONDARY}{cat_trunc}{Colors.ENDC}  {Colors.CYAN}║")
+            
+            # Imprimir líneas adicionales de descripción si existen
+            for line in desc_lines[1:]:
+                print(f"║ {'':16} {Colors.CYAN}║ {'':13} {Colors.CYAN}║ {Colors.TEXT}{line}{Colors.ENDC}{Colors.CYAN}║ {'':17}  {Colors.CYAN}║")
+                
+            # Agregar separador si no es la última herramienta de la página
+            if i < len(tools_in_page) - 1:
+                print(separator)
+        
+        print(bottom_border)
+        print(f"\n")
+        
+        # Mostrar información de paginación
+        if total_pages > 1:
+            print(f"\n{Colors.WARNING}Page {page}/{total_pages} ({total_items} tools){Colors.ENDC}")
+            print(f"{Colors.SUBTLE}Use 'n' for next page, 'p' for previous, any other key to exit{Colors.ENDC}")
+            
+            key = input().lower()
+            if key == 'n' and page < total_pages:
+                self._display_tools_table(tools_to_show, page + 1, items_per_page)
+            elif key == 'p' and page > 1:
+                self._display_tools_table(tools_to_show, page - 1, items_per_page)
+
+    def _display_categories_table(self, categories: List[str], page: int = 1, items_per_page: int = 10) -> None:
+        """
+        Muestra una tabla paginada de categorías
+        
+        Args:
+            categories: Lista de categorías a mostrar
+            page: Número de página actual
+            items_per_page: Número de items por página
+        """
+        if not categories:
+            print(f"{Colors.WARNING}[!] No categories were found{Colors.ENDC}")
+            return
+            
+        total_items = len(categories)
+        total_pages = (total_items + items_per_page - 1) // items_per_page
+        
+        if page > total_pages:
+            page = total_pages
+        
+        start_idx = (page - 1) * items_per_page
+        end_idx = min(start_idx + items_per_page, total_items)
+        
+        # Crear tabla
+        header = f'''
+{Colors.CYAN}╔══════════════════════════════════╦═══════════════════════╗
+║ {Colors.ACCENT}Category    {Colors.ENDC}                     {Colors.CYAN}║ {Colors.ACCENT}Tools       {Colors.ENDC}          {Colors.CYAN}║
+{Colors.CYAN}╠══════════════════════════════════╬═══════════════════════╣'''
+        print(header)
+
+        for category in sorted(categories)[start_idx:end_idx]:
+            # Contar herramientas en esta categoría
+            tools_count = len([
+                tool for tool in self.modules.values()
+                if tool._get_category().lower() == category.lower()
+            ])
+            
+            # Truncar el nombre de la categoría si es necesario
+            cat_trunc = category[:30].ljust(30)
+            count_str = str(tools_count).ljust(15)
+            
+            print(f"{Colors.CYAN}║ {Colors.SECONDARY}{cat_trunc}{Colors.ENDC}   {Colors.CYAN}║ {Colors.SUCCESS}{count_str}{Colors.ENDC}       {Colors.CYAN}║")
+
+        footer = f"{Colors.CYAN}╚══════════════════════════════════╩═══════════════════════╝"
+        print(footer)
+        print(f"\n")
+
+        
+        if total_pages > 1:
+            print(f"\n{Colors.CYAN}Page {page}/{total_pages} ({total_items} categories){Colors.ENDC}")
+            print(f"{Colors.SUBTLE}Use 'n' for next page, 'p' for previous, any other key to exit{Colors.ENDC}")
+            
+            key = input().lower()
+            if key == 'n' and page < total_pages:
+                self._display_categories_table(categories, page + 1, items_per_page)
+            elif key == 'p' and page > 1:
+                self._display_categories_table(categories, page - 1, items_per_page)
+
+    def do_show(self, arg: str) -> None:
+        """
+        Muestra categorías o herramientas de una categoría específica
+        Uso: show category | show <nombre_categoria>
+        """
+        if not arg:
+            print(f"{Colors.FAIL}[!] Error: Correct usage: show category | show <category name>{Colors.ENDC}")
+            return
+            
+        args = arg.split()
+        
+        # Obtener todas las categorías disponibles
+        all_categories = {tool._get_category().lower() for tool in self.modules.values()}
+        
+        # Si el argumento es "category", mostrar lista de categorías
+        if args[0].lower() == 'category':
+            if not all_categories:
+                print(f"{Colors.WARNING}[!] No categories were found{Colors.ENDC}")
+                return
+                
+            print(f"\n{Colors.SUCCESS}[*] Available categories:{Colors.ENDC}")
+            self._display_categories_table(list(all_categories))
+            return
+        
+        # Si no, buscar herramientas en la categoría especificada
+        category = ' '.join(args).lower()
+        if category not in all_categories:
+            print(f"{Colors.FAIL}[!] Category not found: {category}{Colors.ENDC}")
+            print(f"\n{Colors.CYAN}[*] Use 'show category' to view available categories{Colors.ENDC}")
+            return
+            
+        # Filtrar herramientas por categoría
+        tools_in_category = [
+            tool for tool in self.modules.values()
+            if tool._get_category().lower() == category
+        ]
+        
+        print(f"\n{Colors.CYAN}[*] Tools in category '{category}':{Colors.ENDC}")
+        self._display_tools_table(tools_in_category)
+
+    def do_search(self, arg: str) -> None:
+        """
+        Busca herramientas por nombre o descripción
+        Uso: search <término>
+        """
+        if not arg:
+            print(f"{Colors.FAIL}[!] Error: Correct usage: search <term>{Colors.ENDC}")
+            return
+            
+        search_term = arg.lower()
+        
+        # Buscar coincidencias
+        matching_tools = [
+            tool for tool in self.modules.values()
+            if search_term in tool.name.lower() or search_term in tool.description.lower()
+        ]
+        
+        if not matching_tools:
+            print(f"{Colors.WARNING}[!] No Tools were found that match: {search_term}{Colors.ENDC}")
+            return
+            
+        print(f"\n{Colors.SUCCESS}[*] Results for '{search_term}':{Colors.ENDC}")
+        self._display_tools_table(matching_tools)
+
+    def complete_show(self, text, line, begidx, endidx):
+        """Autocompletado para el comando show"""
+        words = line.split()
+        if len(words) <= 2:
+            categories = {'category'} | {
+                tool._get_category().lower() 
+                for tool in self.modules.values()
+            }
+            if not text:
+                return list(categories)
+            return [cat for cat in categories if cat.startswith(text.lower())]
+        return []
+
+    def complete_search(self, text, line, begidx, endidx):
+        """Autocompletado para el comando search"""
+        words = line.split()
+        if len(words) <= 2:
+            if not text:
+                return ['tools']
+            return ['tools'] if 'tools'.startswith(text) else []
+        return []
