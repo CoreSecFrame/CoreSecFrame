@@ -537,6 +537,7 @@ class FrameworkInterface(cmd.Cmd):
             print_command("sessions", "Manage active sessions")
             
             print_section_header("System                 ")
+            print_command("terminal", "Open a clean tmux terminal session to manage the system")
             print_command("clear", "Clear the screen")
             print_command("exit", "Exit the framework")
             print_command("help", "Show this help panel")

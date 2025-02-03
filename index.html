@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Framework Pro</title>
+
+    <!-- Styles -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .terminal-container {
+            background: #1e1e1e;
+            width: 100%;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .terminal-content {
+            height: 24rem;
+            /* h-96 equivalente */
+            padding: 0.5rem;
+            background: #1e1e1e;
+        }
+
+        .minimized {
+            height: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
+        }
+
+        .terminal-bar {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 100%;
+            max-width: 800px;
+            padding: 1rem;
+            z-index: 50;
+        }
+
+        .terminal-window {
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .xterm {
+            padding: 0.5rem;
+            height: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .terminal-bar {
+                max-width: 66.666667%;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .terminal-bar {
+                max-width: 50%;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <div id="app" v-cloak>
+        <!-- Navigation Bar -->
+        <nav class="bg-white shadow-md px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <i data-lucide="shield" class="h-8 w-8 text-blue-600"></i>
+                <h1 class="text-xl font-bold text-gray-800">Security Framework Pro</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button @click="toggleView('dashboard')"
+                    :class="['px-4 py-2 rounded-lg', activeView === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-gray-200']">
+                    Dashboard
+                </button>
+                <button @click="toggleView('tools')"
+                    :class="['px-4 py-2 rounded-lg', activeView === 'tools' ? 'bg-blue-600 text-white' : 'bg-gray-200']">
+                    Tools
+                </button>
+                <button @click="toggleView('sessions')"
+                    :class="['px-4 py-2 rounded-lg', activeView === 'sessions' ? 'bg-blue-600 text-white' : 'bg-gray-200']">
+                    Sessions
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="container mx-auto px-6 py-8">
+            <!-- Loading State -->
+            <div v-if="loading" class="flex justify-center items-center h-64">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+
+            <div v-else>
+                <!-- Dashboard View -->
+                <div v-if="activeView === 'dashboard'" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <h3 class="text-lg font-medium mb-2">Active Tools</h3>
+                            <p class="text-3xl font-bold text-blue-600">{{ installedToolsCount }}</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <h3 class="text-lg font-medium mb-2">Active Sessions</h3>
+                            <p class="text-3xl font-bold text-blue-600">{{ activeSessionsCount }}</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <h3 class="text-lg font-medium mb-2">Total Tasks</h3>
+                            <p class="text-3xl font-bold text-blue-600">{{ totalTasks }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tools View -->
+                <div v-if="activeView === 'tools'" class="bg-white rounded-lg shadow">
+                    <div class="p-6 border-b">
+                        <h2 class="text-lg font-medium">Security Tools</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead>
+                                    <tr class="text-left text-gray-500 text-sm">
+                                        <th class="pb-4">Name</th>
+                                        <th class="pb-4">Status</th>
+                                        <th class="pb-4">Description</th>
+                                        <th class="pb-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="tool in sortedTools" :key="tool.name" class="border-t">
+                                        <td class="py-4">{{ tool.name }}</td>
+                                        <td class="py-4">
+                                            <span :class="getStatusClass(tool.installed)">
+                                                {{ tool.installed ? 'Installed' : 'Not Installed' }}
+                                            </span>
+                                        </td>
+                                        <td class="py-4">{{ tool.description }}</td>
+                                        <td class="py-4">
+                                            <div class="flex space-x-2">
+                                                <button @click="getToolDetails(tool.name)"
+                                                    class="text-blue-600 hover:text-blue-800">
+                                                    Configure
+                                                </button>
+                                                <button v-if="!tool.installed" @click="installTool(tool.name)"
+                                                    class="text-green-600 hover:text-green-800">
+                                                    Install
+                                                </button>
+                                                <button v-else @click="removeTool(tool.name)"
+                                                    class="text-red-600 hover:text-red-800">
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sessions View -->
+                <div v-if="activeView === 'sessions'" class="bg-white rounded-lg shadow">
+                    <div class="p-6 border-b">
+                        <h2 class="text-lg font-medium">Active Sessions</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead>
+                                    <tr class="text-left text-gray-500 text-sm">
+                                        <th class="pb-4">ID</th>
+                                        <th class="pb-4">Name</th>
+                                        <th class="pb-4">Status</th>
+                                        <th class="pb-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="session in sortedSessions" :key="session.id" class="border-t">
+                                        <td class="py-4">#{{ session.id }}</td>
+                                        <td class="py-4">{{ session.name }}</td>
+                                        <td class="py-4">
+                                            <span :class="getStatusClass(session.active)">
+                                                {{ session.active ? 'Active' : 'Inactive' }}
+                                            </span>
+                                        </td>
+                                        <td class="py-4">
+                                            <div class="flex space-x-2">
+                                                <button @click="getSessionDetails(session.id)"
+                                                    class="text-blue-600 hover:text-blue-800">
+                                                    Details
+                                                </button>
+                                                <button v-if="session.active" @click="killSession(session.id)"
+                                                    class="text-red-600 hover:text-red-800">
+                                                    Terminate
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tool Modal -->
+        <div v-if="showToolModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+            <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium">{{ selectedTool?.name }}</h3>
+                    <button @click="closeModals" class="text-gray-500 hover:text-gray-700">
+                        <i data-lucide="x" class="h-6 w-6"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <p class="text-gray-600">{{ selectedTool?.description }}</p>
+                    <div class="border-t pt-4">
+                        <h4 class="font-medium mb-2">Dependencies</h4>
+                        <ul class="list-disc pl-5">
+                            <li v-for="dep in selectedTool?.dependencies" :key="dep">{{ dep }}</li>
+                        </ul>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h4 class="font-medium mb-2">Execution Mode</h4>
+                        <button @click="toggleExecutionMode" :class="[
+                                'px-4 py-2 rounded-lg',
+                                executionMode === 'direct' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                            ]">
+                            {{ executionMode === 'direct' ? 'Direct Mode' : 'Guided Mode' }}
+                        </button>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button @click="executeTool(selectedTool.name)"
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                            Execute Tool
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Modal -->
+        <div v-if="showSessionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+            <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium">Session #{{ selectedSession?.id }}</h3>
+                    <button @click="closeModals" class="text-gray-500 hover:text-gray-700">
+                        <i data-lucide="x" class="h-6 w-6"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <h4 class="font-medium">Status</h4>
+                        <p class="text-gray-600">{{ selectedSession?.active ? 'Active' : 'Inactive' }}</p>
+                    </div>
+                    <div>
+                        <h4 class="font-medium">Duration</h4>
+                        <p class="text-gray-600">{{ selectedSession?.duration }}</p>
+                    </div>
+                    <div>
+                        <h4 class="font-medium">Last Command</h4>
+                        <p class="text-gray-600">{{ selectedSession?.last_command || 'No commands executed' }}</p>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button v-if="selectedSession?.active" @click="openTerminal(selectedSession.id)"
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                            Open Terminal
+                        </button>
+                        <button v-if="selectedSession?.active" @click="killSession(selectedSession.id)"
+                            class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                            Terminate Session
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="terminal-bar">
+            <!-- Minimized Terminals Bar -->
+            <div v-if="activeTerminals.some(t => t.minimized)"
+                class="flex flex-wrap gap-2 mb-2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg">
+                <div v-for="terminal in activeTerminals.filter(t => t.minimized)" :key="terminal.sessionId"
+                    @click="minimizeTerminal(terminal.sessionId)"
+                    class="cursor-pointer hover:text-blue-300 flex items-center space-x-2 py-1">
+                    <i data-lucide="terminal" class="h-4 w-4"></i>
+                    <span>{{ terminal.title }}</span>
+                </div>
+            </div>
+
+            <!-- Active Terminals -->
+            <div v-for="terminal in activeTerminals.filter(t => !t.minimized)" :key="terminal.sessionId"
+                class="terminal-window">
+                <div class="terminal-container">
+                    <div class="bg-gray-800 text-white px-4 py-2 flex justify-between items-center">
+                        <span class="font-medium">{{ terminal.title }}</span>
+                        <div class="flex items-center space-x-2">
+                            <button @click="minimizeTerminal(terminal.sessionId)" class="hover:text-gray-300 p-1">
+                                <i data-lucide="minus" class="h-4 w-4"></i>
+                            </button>
+                            <button @click="closeTerminal(terminal.sessionId)" class="hover:text-red-400 p-1">
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div :id="'terminal-' + terminal.sessionId" class="terminal-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="fixed top-4 right-4 z-50 space-y-2">
+            <div v-for="notification in notifications" :key="notification.id" :class="[
+                    'p-4 rounded-lg shadow-lg transform transition-all',
+                    notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+                ]">
+                {{ notification.message }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        // Initialize Lucide icons after DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
+
+</body>
+
+</html>

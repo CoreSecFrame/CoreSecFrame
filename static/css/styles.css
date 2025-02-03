@@ -1,0 +1,261 @@
+/* Hide Vue content until mounted */
+[v-cloak] {
+    display: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Smooth transitions */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+/* Notification animations */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification-enter {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Terminal styles */
+.terminal-container {
+    background-color: #1e1e1e;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.xterm {
+    padding: 0.5rem;
+}
+
+/* Modal animations */
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+    opacity: 0;
+}
+
+.modal-content-enter-active {
+    transition: all 0.3s ease-out;
+}
+
+.modal-content-leave-active {
+    transition: all 0.3s ease-in;
+}
+
+.modal-content-enter-from,
+.modal-content-leave-to {
+    transform: scale(0.9);
+    opacity: 0;
+}
+
+/* Button states */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+.terminal-enter-active,
+.terminal-leave-active {
+    transition: all 0.3s ease;
+}
+
+.terminal-enter-from,
+.terminal-leave-to {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.terminal-container {
+    background: #1e1e1e;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-content {
+    height: 400px;
+    padding: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.terminal-content.minimized {
+    height: 0;
+    padding: 0;
+}
+
+.terminal-content.maximized {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+    width: 100vw;
+    z-index: 50;
+}
+
+.xterm {
+    padding: 0.5rem;
+}
+
+.xterm-viewport {
+    overflow-y: auto;
+}
+/* Base styles */
+[v-cloak] {
+    display: none;
+}
+
+/* Terminal styles */
+.terminal-container {
+    background: #1e1e1e;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.terminal-content {
+    overflow: hidden;
+    transition: height 0.3s ease;
+}
+
+.terminal-content.minimized {
+    height: 0 !important;
+    padding: 0 !important;
+}
+
+.xterm {
+    padding: 0.5rem;
+}
+
+/* Animations */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.notification-enter {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Modal animations */
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+    opacity: 0;
+}
+
+.modal-content-enter-active {
+    transition: all 0.3s ease-out;
+}
+
+.modal-content-leave-active {
+    transition: all 0.3s ease-in;
+}
+
+.modal-content-enter-from,
+.modal-content-leave-to {
+    transform: scale(0.9);
+    opacity: 0;
+}
+
+/* Utility classes */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.shadow-hover:hover {
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
