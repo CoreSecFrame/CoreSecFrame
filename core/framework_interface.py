@@ -33,7 +33,7 @@ class FrameworkInterface(cmd.Cmd):
     {Colors.CYAN}║                                                                      ║
     {Colors.CYAN}╚══════════════════════════════════════════════════════════════════════╝
     {Colors.TEXT}Started at {current_time}  |  Licensed under GNU GPLv3{Colors.ENDC}
-    {Colors.TEXT}CoreSecurityFramework v1.1  {Colors.ACCENT}Developed with {Colors.ACCENT} ♥ {Colors.PRIMARY}by {Colors.SECONDARY} CoreSecurity Team{Colors.ENDC}
+    {Colors.TEXT}CoreSecurityFramework v1.0.3  {Colors.ACCENT}Developed with {Colors.ACCENT} ♥ {Colors.PRIMARY}by {Colors.SECONDARY} CoreSecurity Team{Colors.ENDC}
     '''
 
     prompt = f'{Colors.SECONDARY}╭─{Colors.SECONDARY}({Colors.PRIMARY}{username}{Colors.ACCENT}@CoreSec{Colors.SECONDARY}){Colors.SECONDARY}─{Colors.SUBTLE}[{Colors.FAIL}#{Colors.SUBTLE}]{Colors.SECONDARY}\n╰─{Colors.ACCENT}≫ {Colors.TEXT}'
@@ -73,10 +73,11 @@ class FrameworkInterface(cmd.Cmd):
     def do_exit(self, arg: str) -> bool:
         """Salir del framework"""
         if self.session_manager.sessions:
-            print(f"\n{Colors.WARNING}[!] There are active sessions. Do you want to exit? (y/N){Colors.ENDC}")
+            print(f"\n{Colors.WARNING}[!] There are active sessions. Do you want to exit and kill them? (y/N){Colors.ENDC}")
             if input().lower() != 'y':
                 return False
-
+                
+        self.session_manager.kill_all_sessions()
         print(f"\n{Colors.SUBTLE}[*] Should we fear hackers? Intention is at the heart of this discussion.{Colors.ENDC}")
         return True
 
@@ -140,7 +141,7 @@ class FrameworkInterface(cmd.Cmd):
         
         while True:
             try:
-                mode = input(f"\n{Colors.BOLD}Choose mode (1/2/3): {Colors.ENDC}").strip()
+                mode = input(f"\n{Colors.BOLD}Choose mode (1/2/0): {Colors.ENDC}").strip()
                 if mode in ('1', '2', '0'):
                     break
                 print(f"{Colors.FAIL}[!] Invalid option{Colors.ENDC}")
@@ -257,6 +258,94 @@ class FrameworkInterface(cmd.Cmd):
             print(" sessions kill <id> - Terminate a specific session")
             print(" sessions kill all  - Terminate all sessions")
             print(" sessions clear     - Manage sessions cleanup")
+
+    def do_terminal(self, arg: str) -> None:
+            """
+            Opens a clean tmux terminal session.
+            Usage: terminal
+            """
+            # Generate unique terminal name
+            terminal_id = len(self.session_manager.sessions) + 1
+            terminal_name = f"terminal_{terminal_id}"
+            
+            print(f"\n{Colors.CYAN}[*] Opening new terminal session...{Colors.ENDC}")
+            
+            # Create and initialize session
+            session = self.session_manager.create_session(terminal_name, None)
+            session.start_logging()
+            
+            try:
+                print(f"\n{Colors.CYAN}[*] Starting terminal...{Colors.ENDC}")
+                print(f"{Colors.CYAN}[*] Basic tmux commands:{Colors.ENDC}")
+                print(f" • {Colors.BOLD}Ctrl+b d{Colors.ENDC}    - Return to framework")
+                print(f" • {Colors.BOLD}Ctrl+b c{Colors.ENDC}    - Create new window")
+                print(f" • {Colors.BOLD}Ctrl+b w{Colors.ENDC}    - List windows")
+                print(f" • {Colors.BOLD}Ctrl+b %{Colors.ENDC}    - Split vertically")
+                print(f" • {Colors.BOLD}Ctrl+b \"{Colors.ENDC}    - Split horizontally")
+                
+                # Basic shell command with environment setup
+                cmd = f"cd {Path.home()} && TERM=xterm-256color exec $SHELL -l"
+                
+                success = TerminalManager.run_in_tmux(
+                    cmd,
+                    session.name,
+                    "Terminal Session"
+                )
+                
+                if success:
+                    print(f"\n{Colors.GREEN}[✓] You have returned to the framework{Colors.ENDC}")
+                    print(f"{Colors.CYAN}[*] To reconnect use: {Colors.BOLD}sessions use {session.session_id}{Colors.ENDC}")
+                    session.add_to_history("Clean terminal session started")
+                else:
+                    print(f"{Colors.FAIL}[!] Error creating terminal session{Colors.ENDC}")
+                    session.active = False
+                    
+            except Exception as e:
+                print(f"{Colors.FAIL}[!] Error opening terminal: {e}{Colors.ENDC}")
+                session.active = False
+                session.log(f"Error: {str(e)}")
+            finally:
+                if not session.active:
+                    session.stop_logging()
+                    session.kill_terminal()
+                    del self.session_manager.sessions[int(session.session_id)]
+
+    def help_terminal(self):
+        """Provides help information for the terminal command"""
+        print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}Terminal Session{Colors.PRIMARY}                                          ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}
+              
+{Colors.BOLD}USAGE:{Colors.ENDC}
+  terminal
+
+{Colors.BOLD}DESCRIPTION:{Colors.ENDC}
+  Opens a clean terminal session in tmux that can be used for any system operations.
+  The session will be managed by the framework and can be reconnected to using the
+  sessions command.
+
+{Colors.BOLD}FEATURES:{Colors.ENDC}
+  • Full tmux functionality
+  • Session persistence
+  • Window and pane management
+  • Session logging
+  • Easy reconnection
+
+{Colors.BOLD}COMMON COMMANDS:{Colors.ENDC}
+  • Ctrl+b d          - Detach from session (return to framework)
+  • Ctrl+b c          - Create new window
+  • Ctrl+b w          - List windows
+  • Ctrl+b %          - Split vertically
+  • Ctrl+b "          - Split horizontally
+  • Ctrl+b arrows     - Navigate between panes
+
+{Colors.BOLD}FRAMEWORK COMMANDS:{Colors.ENDC}
+  • sessions          - List all sessions including terminals
+  • sessions use <id> - Reconnect to a specific terminal
+  • help tmux         - Show detailed tmux help''')
+        print(f"\n")
+
 
     def complete_kill(self, text, line, begidx, endidx):
         """Autocompletado para el comando kill"""

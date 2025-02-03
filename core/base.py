@@ -7,9 +7,10 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 import shutil
 import subprocess
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 from .terminal_management import TerminalManager
 from .colors import Colors
+from .ssh_manager import SSHManager, SSHCredentials 
 
 # Añadir el directorio raíz al path si no está ya
 root_dir = Path(__file__).parent.parent
@@ -23,6 +24,7 @@ class GetModule(ABC):
         self.description: str = self._get_description()
         self.dependencies: List[str] = self._get_dependencies()
         self._installed: Optional[bool] = None
+        self._ssh_manager: Optional[SSHManager] = None
         self.check_installation()
         
     @abstractmethod
@@ -566,3 +568,160 @@ class ToolModule(GetModule):
                     return manager_info
                     
         return None, None
+
+    @property
+    def ssh_manager(self) -> SSHManager:
+        """Lazy initialization of SSH manager"""
+        if self._ssh_manager is None:
+            self._ssh_manager = SSHManager()
+        return self._ssh_manager
+
+    def connect_ssh(self, host: str, user: str, use_password: bool = False, key_path: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+        """
+        Establishes SSH connection with specified credentials
+        
+        Args:
+            host: Remote host
+            user: Remote user
+            use_password: Whether to use password authentication
+            key_path: Path to SSH key file (optional)
+            
+        Returns:
+            Tuple[bool, Optional[str]]: (Success status, Error message if any)
+        """
+        credentials = SSHCredentials(
+            host=host,
+            user=user,
+            use_password=use_password,
+            key_path=key_path
+        )
+        return self.ssh_manager.connect(credentials)
+
+    def execute_remote_command(self, command: str, use_sudo: bool = False) -> Tuple[int, str, str]:
+        """
+        Executes a command on the remote host
+        
+        Args:
+            command: Command to execute
+            use_sudo: Whether to execute with sudo
+            
+        Returns:
+            Tuple[int, str, str]: (Exit status, stdout, stderr)
+        """
+        return self.ssh_manager.execute_command(command, use_sudo)
+
+    def upload_file(self, local_path: str, remote_path: str) -> bool:
+        """
+        Uploads a file to the remote host
+        
+        Args:
+            local_path: Path to local file
+            remote_path: Path where to store file on remote host
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        return self.ssh_manager.upload_file(local_path, remote_path)
+
+    def download_file(self, remote_path: str, local_path: str) -> bool:
+        """
+        Downloads a file from the remote host
+        
+        Args:
+            remote_path: Path to remote file
+            local_path: Path where to store file locally
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        return self.ssh_manager.download_file(remote_path, local_path)
+
+    def close_ssh(self):
+        """Closes the SSH connection if active"""
+        if self._ssh_manager:
+            self._ssh_manager.close()
+            self._ssh_manager = None
+
+
+    def open_interactive_terminal(self, session_name: str = "framework-terminal") -> bool:
+        """
+        Opens a clean tmux terminal session for user interaction.
+        
+        Args:
+            session_name: Name for the tmux session. Default is "framework-terminal"
+            
+        Returns:
+            bool: True if terminal was opened successfully, False otherwise
+        """
+        try:
+            # Check if tmux is installed
+            if not shutil.which('tmux'):
+                print(f"{Colors.FAIL}[!] Error: tmux is not installed{Colors.ENDC}")
+                return False
+                
+            # Check if session already exists
+            check_session = subprocess.run(
+                ['tmux', 'has-session', '-t', session_name],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE
+            )
+            
+            if check_session.returncode == 0:
+                print(f"{Colors.WARNING}[!] Session '{session_name}' already exists{Colors.ENDC}")
+                attach = input("Do you want to attach to the existing session? (y/N): ").lower() == 'y'
+                if attach:
+                    subprocess.run(['tmux', 'attach-session', '-t', session_name])
+                return True
+
+            # Create new session
+            print(f"{Colors.CYAN}[*] Creating new tmux session: {session_name}{Colors.ENDC}")
+            
+            # Start detached session with custom settings
+            subprocess.run([
+                'tmux', 'new-session',
+                '-d',  # Start detached
+                '-s', session_name,  # Session name
+                '-n', 'main'  # Window name
+            ])
+            
+            # Configure session
+            subprocess.run([
+                'tmux', 'set-option',
+                '-t', session_name,
+                'status-style', 'bg=black,fg=white'
+            ])
+            
+            # Set window title
+            subprocess.run([
+                'tmux', 'rename-window',
+                '-t', f'{session_name}:0',
+                'Framework Terminal'
+            ])
+            
+            # Add helpful message
+            subprocess.run([
+                'tmux', 'send-keys',
+                '-t', session_name,
+                f'echo "{Colors.CYAN}Welcome to Framework Terminal{Colors.ENDC}"\n'
+            ])
+            
+            print(f"\n{Colors.CYAN}[*] Terminal session created successfully{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] Commands to manage the session:{Colors.ENDC}")
+            print("    - Exit session: Ctrl+B then D (detach)")
+            print("    - Reattach: tmux attach -t", session_name)
+            print("    - Kill session: tmux kill-session -t", session_name)
+            
+            # Attach to session
+            subprocess.run(['tmux', 'attach-session', '-t', session_name])
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"{Colors.FAIL}[!] Error creating tmux session: {e}{Colors.ENDC}")
+            return False
+        except Exception as e:
+            print(f"{Colors.FAIL}[!] Unexpected error: {e}{Colors.ENDC}")
+            return False
+        finally:
+            # No cleanup here - we want the session to persist until user closes it
+            pass
