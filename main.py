@@ -42,7 +42,7 @@ def get_sudo_permission():
             TerminalManager.clear_screen()
             return True
         else:
-            print("{Colors.FAIL}[!] Incorrect password{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Incorrect password{Colors.ENDC}")
             return False
             
     except KeyboardInterrupt:
