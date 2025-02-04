@@ -312,17 +312,19 @@ class ToolModule(GetModule):
         if initial_load:
             num_compatible = len(compatibility_status['Compatible'])
             num_incompatible = len(compatibility_status['Incompatible'])
+
             
-            print(f"\n{Colors.WARNING}[*] Found {num_compatible} compatible modules and {num_incompatible} uncompatible modules")
+            print(f"\n{Colors.WARNING}[*] Found {num_compatible} compatible modules and {num_incompatible} incompatible modules")
             
             if compatibility_status['Incompatible']:
-                print(f"\n{Colors.FAIL}[!] Details of uncompatible modules:")
+                print(f"\n{Colors.WARNING}[!] Details of incompatible modules:")
                 for module in compatibility_status['Incompatible']:
                     print(f"  - {module['name']}: {module['reason']}")
                 
                 if not compatibility_status['Compatible']:
-                    print(f"{Colors.FAIL}[!] No compatible modules were found. The framework cannot continue.")
-                    sys.exit(1)
+                    print(f"\n{Colors.WARNING}[!] No compatible modules found")
+                    print(f"{Colors.CYAN}[*] You can use the 'shop' command to download new modules{Colors.ENDC}")
+                    return cls.modules
                     
                 print(f"\n{Colors.WARNING}[?] ¿Do you want to continue with the loading of compatible modules? (y/N): ", end='')
                 try:
@@ -346,7 +348,6 @@ class ToolModule(GetModule):
                         attr != ToolModule):
                         tool = attr()
                         cls.modules[tool.name.lower()] = tool
-                        TerminalManager.clear_screen()
                         break
             except Exception as e:
                 if initial_load:
