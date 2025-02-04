@@ -65,6 +65,7 @@ def setup_environment():
     try:
         (root_dir / 'modules').mkdir(exist_ok=True)
         (root_dir / 'core').mkdir(exist_ok=True)
+        (root_dir / 'cache').mkdir(exist_ok=True)
         
         # Crear archivos __init__.py si no existen
         for dir_path in [root_dir, root_dir / 'core', root_dir / 'modules']:
@@ -72,15 +73,21 @@ def setup_environment():
             init_file = dir_path / '__init__.py'
             if not init_file.exists():
                 init_file.touch()
+                
+        # Update modules cache if needed
+        from core.module_cache import ModuleCache
+        if ModuleCache.needs_update():
+            ModuleCache.update_cache("https://github.com/CoreSecFrame/CoreSecFrame-Modules")
+            
     except PermissionError:
-        print("{Colors.FAIL}[!] No enough permissions to create directories{Colors.ENDC}")
+        print(f"{Colors.FAIL}[!] No enough permissions to create directories{Colors.ENDC}")
         return False
     except Exception as e:
         print(f"{Colors.FAIL}[!] Error setting up environment: {e}{Colors.ENDC}")
         return False
         
     return True
-
+    
 def main():
     """Punto de entrada principal del framework"""
     # Limpiar terminal antes de iniciar
@@ -103,11 +110,11 @@ def main():
         try:
             modules = ToolModule.load_modules(initial_load=True)
             if not modules:
-                print(f"{Colors.FAIL}[!] No modules were loaded. The framework cannot continue.{Colors.ENDC}")
-                sys.exit(1)
+                print(f"\n{Colors.WARNING}[!] No modules are currently loaded{Colors.ENDC}")
+                print(f"{Colors.CYAN}[*] You can use the 'shop' command to download modules{Colors.ENDC}")
         except Exception as e:
-            print(f"{Colors.FAIL}[!] Error loading modules: {e}{Colors.ENDC}")
-            sys.exit(1)
+            print(f"{Colors.WARNING}[!] Error loading modules: {e}{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] You can use the 'shop' command to download modules{Colors.ENDC}")
             
         framework = FrameworkInterface()
         framework.cmdloop()
