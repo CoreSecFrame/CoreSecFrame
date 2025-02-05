@@ -779,6 +779,7 @@ class FrameworkInterface(cmd.Cmd):
         
         # Actualizar estado de instalación de todos los módulos
         self._update_installation_status(self.modules.values())
+        TerminalManager.clear_screen()
         
         # Obtener todas las categorías disponibles
         all_categories = {tool._get_category().lower() for tool in self.modules.values()}
@@ -820,6 +821,7 @@ class FrameworkInterface(cmd.Cmd):
             
         # Actualizar estado de instalación de todos los módulos
         self._update_installation_status(self.modules.values())
+        TerminalManager.clear_screen()
         
         search_term = arg.lower()
         
