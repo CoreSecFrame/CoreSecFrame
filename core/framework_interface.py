@@ -131,7 +131,7 @@ class FrameworkInterface(cmd.Cmd):
             self._use_tool(args[0])
 
     def _use_tool(self, tool_name: str) -> None:
-        """Método auxiliar para ejecutar una herramienta"""
+        """Method to execute a tool"""
         module = self.modules.get(tool_name.lower())
         if not module:
             print(f"{Colors.FAIL}[!] Error: Tool '{tool_name}' not found{Colors.ENDC}")
@@ -142,7 +142,7 @@ class FrameworkInterface(cmd.Cmd):
             print(f"{Colors.CYAN}[*] You can install it with the command: install {tool_name}{Colors.ENDC}")
             return
 
-        # Mostramos la información inicial al usuario
+        # Show initial information to user
         print(f"\n{Colors.CYAN}[*] Initializing {module.name} in a new tmux session{Colors.ENDC}")
         print(f"\n{Colors.GREEN}Choose execution mode:{Colors.ENDC}")
         print(f"{Colors.GREEN}1:{Colors.ENDC} Guided mode")
@@ -162,24 +162,36 @@ class FrameworkInterface(cmd.Cmd):
         if mode == "0":
             return
 
-        # Crear y inicializar sesión
+        # Create and initialize session
         session = self.session_manager.create_session(module.name, module)
         session.start_logging()
 
         try:
             framework_root = Path(__file__).parent.parent
-            module_name = module.__class__.__module__.split('.')[-1]
-            class_name = module.__class__.__name__
             
-            python_cmd = (
-                f"python3 -c \"import sys; "
-                f"sys.path.append('{framework_root}'); "
-                f"from modules.{module_name} import {class_name}; "
-                f"tool = {class_name}(); "
-                f"tool.{'run_guided' if mode == '1' else 'run_direct'}()\""
-            )
+            # Get module path components
+            module_path = module.__class__.__module__.split('.')
+            module_name = module_path[-1]
+            
+            # Handle module in category directory
+            if len(module_path) > 2:  # modules.Category.module_name
+                category = module_path[-2]
+                import_path = f"modules.{category}.{module_name}"
+            else:  # modules.module_name
+                import_path = f"modules.{module_name}"
+                
+            class_name = module.__class__.__name__
 
-            cmd = f"cd {framework_root} && TERM=xterm-256color python3 -u -c \"import sys; import readline; sys.path.append('{framework_root}'); from modules.{module_name} import {class_name}; tool = {class_name}(); tool.{'run_guided' if mode == '1' else 'run_direct'}()\"; exec bash -l"   
+            # Build the command with proper import path
+            cmd = (f"cd {framework_root} && "
+                f"TERM=xterm-256color python3 -u -c \""
+                f"import sys; "
+                f"import readline; "
+                f"sys.path.append('{framework_root}'); "
+                f"from {import_path} import {class_name}; "
+                f"tool = {class_name}(); "
+                f"tool.{'run_guided' if mode == '1' else 'run_direct'}()\"; "
+                f"exec bash -l")
 
             print(f"\n{Colors.CYAN}[*] Initializing tmux session...{Colors.ENDC}")
             print(f"{Colors.CYAN}[*] Remember:{Colors.ENDC}")

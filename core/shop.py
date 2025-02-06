@@ -34,26 +34,35 @@ class ModuleShop:
         self._fetch_modules()
 
     def _fetch_modules(self) -> None:
-            """Fetch all modules from cache"""
-            try:
-                from .module_cache import ModuleCache
-                cached_modules = ModuleCache.get_cached_modules()
+        """Fetch all modules from cache"""
+        try:
+            from .module_cache import ModuleCache
+            cached_modules = ModuleCache.get_cached_modules()
+            
+            modules_dir = Path(__file__).parent.parent / 'modules'
+            
+            for module in cached_modules:
+                name = module["name"]
+                category = module["category"]
                 
-                modules_dir = Path(__file__).parent.parent / 'modules'
+                # Check if module exists in its category directory
+                module_path = None
+                if category != "Uncategorized":
+                    module_path = modules_dir / category / f"{module['filename']}"
+                else:
+                    module_path = modules_dir / module['filename']
                 
-                for module in cached_modules:
-                    name = module["name"]
-                    self.modules[name.lower()] = RemoteModule(
-                        name=name,
-                        description=module["description"],
-                        category=module["category"],
-                        url=module["url"],
-                        downloaded=(modules_dir / module["filename"]).exists()
-                    )
-                    
-            except Exception as e:
-                print(f"{Colors.FAIL}[!] Error loading modules: {e}{Colors.ENDC}")
-                sys.exit(1)
+                self.modules[name.lower()] = RemoteModule(
+                    name=name,
+                    description=module["description"],
+                    category=category,
+                    url=module["url"],
+                    downloaded=module_path.exists() if module_path else False
+                )
+                
+        except Exception as e:
+            print(f"{Colors.FAIL}[!] Error loading modules: {e}{Colors.ENDC}")
+            sys.exit(1)
 
     def _parse_module_info(self, content: str) -> tuple:
         """
@@ -86,6 +95,7 @@ class ModuleShop:
             
         return description, category
 
+
     def download_module(self, module_name: str) -> bool:
         """Download a module to the modules directory"""
         module = self.modules.get(module_name.lower())
@@ -93,34 +103,62 @@ class ModuleShop:
             print(f"{Colors.FAIL}[!] Module not found: {module_name}{Colors.ENDC}")
             return False
             
-        if module.downloaded:
-            print(f"{Colors.WARNING}[!] Module already downloaded{Colors.ENDC}")
-            return True
-
         try:
-            # Create modules directory if needed
+            # Create base modules directory if needed
             self.modules_dir.mkdir(parents=True, exist_ok=True)
             
+            # Ensure base __init__.py exists
+            base_init = self.modules_dir / "__init__.py"
+            if not base_init.exists():
+                base_init.touch()
+            
+            # Set up category directory if needed
+            if module.category != "Uncategorized":
+                category_dir = self.modules_dir / module.category
+                module_path = category_dir / f"{module.name}.py"
+                
+                # Create category directory and its __init__.py
+                category_dir.mkdir(exist_ok=True)
+                category_init = category_dir / "__init__.py"
+                if not category_init.exists():
+                    category_init.touch()
+            else:
+                module_path = self.modules_dir / f"{module.name}.py"
+
+            if module_path.exists():
+                print(f"{Colors.WARNING}[!] Module already downloaded at {module_path}{Colors.ENDC}")
+                return True
+
             # Download module
             response = requests.get(module.url)
             response.raise_for_status()
             
             # Save module
-            module_path = self.modules_dir / f"{module.name}.py"
             with open(module_path, 'wb') as f:
                 f.write(response.content)
             
-            # Create __init__.py if needed
-            init_file = self.modules_dir / '__init__.py'
-            if not init_file.exists():
-                init_file.touch()
-                
             module.downloaded = True
-            print(f"{Colors.GREEN}[✓] Module downloaded successfully{Colors.ENDC}")
+            print(f"{Colors.GREEN}[✓] Module downloaded successfully to {module_path}{Colors.ENDC}")
 
             # Reload modules in the framework
             print(f"{Colors.CYAN}[*] Reloading framework modules...{Colors.ENDC}")
-            from .base import ToolModule
+            
+            # Force Python to reload the module
+            import importlib
+            if module.category != "Uncategorized":
+                module_import_path = f"modules.{module.category}.{module.name}"
+            else:
+                module_import_path = f"modules.{module.name}"
+                
+            try:
+                if module_import_path in sys.modules:
+                    importlib.reload(sys.modules[module_import_path])
+                importlib.import_module(module_import_path)
+            except Exception as e:
+                print(f"{Colors.WARNING}[!] Note: New module will be available after framework restart: {e}{Colors.ENDC}")
+
+            # Reload all modules
+            from core.base import ToolModule
             self.framework.modules = ToolModule.load_modules(initial_load=False)
             print(f"{Colors.GREEN}[✓] Modules reloaded successfully{Colors.ENDC}")
 
@@ -128,6 +166,8 @@ class ModuleShop:
             
         except Exception as e:
             print(f"{Colors.FAIL}[!] Error downloading module: {e}{Colors.ENDC}")
+            import traceback
+            print(traceback.format_exc())
             return False
 
     def _calculate_description_width(self, modules: List[RemoteModule]) -> int:

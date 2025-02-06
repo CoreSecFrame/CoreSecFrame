@@ -293,150 +293,193 @@ class ToolModule(GetModule):
                 
         return compatibility_status
 
+
     @classmethod
     def load_modules(cls, initial_load: bool = False) -> Dict[str, 'ToolModule']:
         """
-        Carga dinámicamente todos los módulos compatibles
+        Loads all compatible modules dynamically
         
         Args:
-            initial_load (bool): Indica si es la carga inicial del framework
+            initial_load (bool): Indicates if this is the framework's initial load
             
         Returns:
-            Dict[str, ToolModule]: Diccionario con los módulos cargados
+            Dict[str, ToolModule]: Dictionary with loaded modules
         """
         cls.modules = {}  # Reset modules
         
-        # Verificar compatibilidad de módulos
-        compatibility_status = cls.check_module_compatibility()
-        
-        if initial_load:
-            num_compatible = len(compatibility_status['Compatible'])
-            num_incompatible = len(compatibility_status['Incompatible'])
-
-            
-            print(f"\n{Colors.WARNING}[*] Found {num_compatible} compatible modules and {num_incompatible} incompatible modules")
-            
-            if compatibility_status['Incompatible']:
-                print(f"\n{Colors.WARNING}[!] Details of incompatible modules:")
-                for module in compatibility_status['Incompatible']:
-                    print(f"  - {module['name']}: {module['reason']}")
-                
-                if not compatibility_status['Compatible']:
-                    print(f"\n{Colors.WARNING}[!] No compatible modules found")
-                    print(f"{Colors.CYAN}[*] You can use the 'shop' command to download new modules{Colors.ENDC}")
-                    return cls.modules
-                    
-                print(f"\n{Colors.WARNING}[?] ¿Do you want to continue with the loading of compatible modules? (y/N): ", end='')
-                try:
-                    response = input().lower()
-                    if response != 'y':
-                        print("[!] Operation cancelled by user.")
-                        sys.exit(0)
-                except KeyboardInterrupt:
-                    print("\n[!] Operation cancelled by user.")
-                    sys.exit(0)
-        
-        # Cargar solo los módulos compatibles
-        modules_dir = Path(__file__).parent.parent / 'modules'
-        for module_name in compatibility_status['Compatible']:
-            try:
-                module = importlib.import_module(f'modules.{module_name}')
-                for attr_name in dir(module):
-                    attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and
-                        issubclass(attr, ToolModule) and
-                        attr != ToolModule):
-                        tool = attr()
-                        cls.modules[tool.name.lower()] = tool
-                        break
-            except Exception as e:
+        try:
+            modules_dir = Path(__file__).parent.parent / 'modules'
+            if not modules_dir.exists():
                 if initial_load:
-                    print(f"[!] Error loading module {module_name}: {e}")
-        
+                    print(f"{Colors.WARNING}[!] Modules directory not found{Colors.ENDC}")
+                return cls.modules
+
+            # Ensure base __init__.py exists
+            base_init = modules_dir / "__init__.py"
+            if not base_init.exists():
+                base_init.touch()
+
+            def load_module_file(file_path: Path, import_path: str):
+                """Helper function to load a single module file"""
+                try:
+                    if initial_load:
+                        print(f"{Colors.SUBTLE}[*] Attempting to load: {import_path}{Colors.ENDC}")
+                    
+                    # Import the module
+                    spec = importlib.util.spec_from_file_location(import_path, str(file_path))
+                    if spec is None:
+                        if initial_load:
+                            print(f"{Colors.FAIL}[!] Could not create spec for {file_path}{Colors.ENDC}")
+                        return
+                        
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[import_path] = module
+                    spec.loader.exec_module(module)
+                    
+                    # Find the class that inherits from ToolModule
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if (isinstance(attr, type) and 
+                            issubclass(attr, ToolModule) and 
+                            attr != ToolModule):
+                            try:
+                                tool = attr()
+                                cls.modules[tool.name.lower()] = tool
+                                if initial_load:
+                                    print(f"{Colors.CYAN}[+] Loaded module: {tool.name} ({import_path}){Colors.ENDC}")
+                                return True
+                            except Exception as e:
+                                if initial_load:
+                                    print(f"{Colors.FAIL}[!] Error instantiating module {attr_name}: {e}{Colors.ENDC}")
+                            break
+                            
+                except Exception as e:
+                    if initial_load:
+                        print(f"{Colors.FAIL}[!] Error loading module {import_path}: {e}{Colors.ENDC}")
+                        import traceback
+                        print(traceback.format_exc())
+                return False
+
+            # Load modules from base directory
+            for file_path in modules_dir.glob("*.py"):
+                if file_path.name != "__init__.py":
+                    import_path = f"modules.{file_path.stem}"
+                    load_module_file(file_path, import_path)
+
+            # Load modules from category directories
+            for category_dir in modules_dir.glob("*"):
+                if category_dir.is_dir() and category_dir.name != "__pycache__":
+                    # Ensure category __init__.py exists
+                    category_init = category_dir / "__init__.py"
+                    if not category_init.exists():
+                        category_init.touch()
+                    
+                    for file_path in category_dir.glob("*.py"):
+                        if file_path.name != "__init__.py":
+                            import_path = f"modules.{category_dir.name}.{file_path.stem}"
+                            load_module_file(file_path, import_path)
+
+            if initial_load:
+                if cls.modules:
+                    print(f"\n{Colors.GREEN}[✓] Successfully loaded {len(cls.modules)} modules{Colors.ENDC}")
+                else:
+                    print(f"\n{Colors.WARNING}[!] No modules were loaded{Colors.ENDC}")
+                    print(f"{Colors.CYAN}[*] You can use the 'shop' command to download new modules{Colors.ENDC}")
+                    
+        except Exception as e:
+            if initial_load:
+                print(f"{Colors.FAIL}[!] Error during module loading: {e}{Colors.ENDC}")
+                import traceback
+                print(traceback.format_exc())
+                
         return cls.modules
 
     def check_installation(self) -> bool:
         """
-        Verifica la instalación de forma inteligente basándose en el tipo de herramienta.
-        La detección del tipo se hace automáticamente según los atributos y rutas proporcionados.
+        Verifies installation intelligently based on tool type.
+        Installation detection is done automatically based on attributes and paths.
         """
         try:
-            # 1. Verificar dependencias primero
+            # 1. Verify dependencies first
             missing_deps = []
             for dep in self._get_dependencies():
                 if not shutil.which(dep):
                     missing_deps.append(dep)
             
             if missing_deps:
+                self._installed = False
                 return False
 
-            # 2. Determinar el tipo de herramienta
+            # 2. Determine tool type
             is_command_based = bool(self.command and self.command != self._get_name())
             is_script_based = bool(self._get_script_path())
             
-            # 3. Verificación basada en comando (binarios instalados)
+            # 3. Command-based verification (installed binaries)
             if is_command_based:
                 command_path = shutil.which(self.command)
                 if command_path:
                     self._installed = True
                     return True
                     
-            # 4. Verificación basada en script
+            # 4. Script-based verification
             if is_script_based:
                 script_path = Path(self._get_script_path())
                 
-                # 4.1 Verificar existencia del script
+                # Get category from class path
+                module_category = self._get_category()
+                scripts_base_dir = Path(__file__).parent.parent / "scripts"
+                category_scripts_dir = scripts_base_dir / module_category
+                
+                # 4.1 Verify script existence
                 if not script_path.exists():
+                    self._installed = False
                     return False
                     
-                # 4.2 Verificar permisos
+                # 4.2 Verify permissions
                 if not os.access(script_path, os.X_OK):
                     try:
                         os.chmod(script_path, 0o755)
-                        print(f"[*] Permissions added to: {script_path}")
                     except Exception as e:
-                        print(f"[!] Not able to set permissions: {e}")
+                        print(f"{Colors.WARNING}[!] Could not set permissions: {e}{Colors.ENDC}")
+                        self._installed = False
                         return False
                 
-                # 4.3 Verificar estructura de directorios
+                # 4.3 Verify directory structure
                 script_dir = script_path.parent
                 if not script_dir.exists():
-                    print(f"[!] Script directory not found: {script_dir}")
+                    print(f"{Colors.WARNING}[!] Script directory not found: {script_dir}{Colors.ENDC}")
+                    self._installed = False
                     return False
                     
-                # 4.4 Buscar archivos comunes según el tipo de script
+                # 4.4 Look for common files based on script type
                 if script_path.suffix == '.sh':
-                    # Scripts bash suelen tener estos archivos
                     common_files = ['.git', 'README.md', 'config', 'install.sh']
                 elif script_path.suffix == '.py':
-                    # Scripts Python suelen tener estos archivos
                     common_files = ['requirements.txt', 'setup.py', '.git', 'README.md']
                 else:
                     common_files = ['.git', 'README.md']
                 
-                found_files = []
-                for file in common_files:
-                    file_path = script_dir / file
-                    if file_path.exists():
-                        found_files.append(file)
+                found_files = [file for file in common_files if (script_dir / file).exists()]
                 
                 if found_files:
-                    print(f"[*] Additional files found: {', '.join(found_files)}")
+                    print(f"{Colors.CYAN}[*] Found additional files: {', '.join(found_files)}{Colors.ENDC}")
                 
-                # 4.5 Para scripts, si tiene todas las dependencias y el script existe, consideramos que está instalado
+                # 4.5 For scripts, if all dependencies and script exist, consider it installed
                 self._installed = True
                 return True
-                
-            # 5. Si no es ni command_based ni script_based, verificar si el módulo define verificación específica
+                    
+            # 5. If not command_based or script_based, check for tool-specific requirements
             if hasattr(self, '_verify_tool_specific_requirements'):
                 return self._verify_tool_specific_requirements()
-                
-            # 6. Si llegamos aquí y no hay forma de verificar, asumimos que no está instalado
-            print("[!] Not able to determine installation status")
+                    
+            # 6. If no verification method available, assume not installed
+            print(f"{Colors.WARNING}[!] Could not determine installation status{Colors.ENDC}")
+            self._installed = False
             return False
-            
+                
         except Exception as e:
-            print(f"[!] Error during installation verification: {e}")
+            print(f"{Colors.FAIL}[!] Error checking installation: {e}{Colors.ENDC}")
+            self._installed = False
             return False
 
     @property

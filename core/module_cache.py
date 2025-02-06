@@ -7,6 +7,7 @@ from pathlib import Path
 import requests
 import base64
 import re
+from typing import List, Optional, Dict, Tuple
 from datetime import datetime, timedelta
 from .colors import Colors
 
@@ -29,6 +30,33 @@ class ModuleCache:
             return True
 
     @classmethod
+    def _fetch_repo_contents(cls, api_url: str, path: str = "", headers: dict = None) -> List[dict]:
+        """Recursively fetch repository contents including subdirectories"""
+        contents = []
+        current_url = f"{api_url}/{path}".rstrip('/')
+        
+        try:
+            response = requests.get(current_url, headers=headers)
+            response.raise_for_status()
+            
+            for item in response.json():
+                if item["type"] == "dir":
+                    # Recursively fetch contents of subdirectory
+                    contents.extend(cls._fetch_repo_contents(api_url, item["path"], headers))
+                elif item["type"] == "file" and item["name"].endswith(".py"):
+                    # Add file details to contents
+                    contents.append({
+                        "path": item["path"],  # Include full path from repo root
+                        "name": item["name"],
+                        "url": item["html_url"].replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+                    })
+                    
+            return contents
+        except Exception as e:
+            print(f"{Colors.FAIL}[!] Error fetching repository contents: {e}{Colors.ENDC}")
+            return contents
+
+    @classmethod
     def update_cache(cls, repo_url: str) -> bool:
         """Update modules cache from repository"""
         try:
@@ -48,34 +76,39 @@ class ModuleCache:
                 "User-Agent": "CoreSecFrame-ModuleCache"
             }
             
+            # Fetch all repository contents recursively
             modules = []
-            response = requests.get(api_url, headers=headers)
-            response.raise_for_status()
+            contents = cls._fetch_repo_contents(api_url, headers=headers)
             
-            for item in response.json():
-                if item["type"] == "file" and item["name"].endswith(".py"):
-                    # Get raw URL for the file
-                    raw_url = item["html_url"].replace("github.com", "raw.githubusercontent.com")
-                    raw_url = raw_url.replace("/blob/", "/")
-                    
+            for item in contents:
+                try:
                     # Get file content to parse metadata
                     file_response = requests.get(item["url"], headers=headers)
-                    content = base64.b64decode(file_response.json()["content"]).decode('utf-8')
+                    content = file_response.text
                     
                     # Parse module info
                     name = item["name"].replace(".py", "")
                     description, category = cls._parse_module_info(content)
                     
+                    # If category not explicitly defined, use directory name
+                    if category == "Uncategorized" and "/" in item["path"]:
+                        category = item["path"].split("/")[0]
+                    
                     modules.append({
                         "name": name,
                         "description": description,
                         "category": category,
-                        "url": raw_url,
-                        "filename": item["name"]
+                        "url": item["url"],
+                        "filename": item["name"],
+                        "path": item["path"]  # Store full path for correct loading
                     })
                     
                     # Add delay to avoid rate limiting
                     time.sleep(1)
+                    
+                except Exception as e:
+                    print(f"{Colors.WARNING}[!] Error processing module {item['name']}: {e}{Colors.ENDC}")
+                    continue
             
             # Save to cache file
             cache_data = {

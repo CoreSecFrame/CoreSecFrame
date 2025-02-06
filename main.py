@@ -76,8 +76,10 @@ def setup_environment():
                 
         # Update modules cache if needed
         from core.module_cache import ModuleCache
+        repo_url = "https://github.com/CoreSecFrame/CoreSecFrame-Modules"  # Default repository URL
+        
         if ModuleCache.needs_update():
-            ModuleCache.update_cache("https://github.com/CoreSecFrame/CoreSecFrame-Modules")
+            ModuleCache.update_cache(repo_url=repo_url)
             
     except PermissionError:
         print(f"{Colors.FAIL}[!] No enough permissions to create directories{Colors.ENDC}")
