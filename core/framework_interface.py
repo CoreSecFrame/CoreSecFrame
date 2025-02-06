@@ -59,13 +59,13 @@ class FrameworkInterface(cmd.Cmd):
 
     def handle_sigint(self, signum, frame):
         """Manejador personalizado para Ctrl+C"""
-        print("\n\n[!] Usa 'exit' para salir del framework")
+        print("\n\n[!] Use 'exit' to close the framework")
         return
 
     def default(self, line: str) -> None:
         """Manejador de comandos desconocidos"""
-        print(f"{Colors.FAIL}[!] Comando desconocido: {line}{Colors.ENDC}")
-        print(f"{Colors.CYAN}[*] Usa 'help' para ver los comandos disponibles{Colors.ENDC}")
+        print(f"{Colors.FAIL}[!] Unkown command: {line}{Colors.ENDC}")
+        print(f"{Colors.CYAN}[*] Use 'help' to see avaiable commands{Colors.ENDC}")
         
     def emptyline(self) -> bool:
         """No hacer nada cuando se presiona Enter sin comando"""
@@ -95,7 +95,7 @@ class FrameworkInterface(cmd.Cmd):
         """Actualiza una herramienta"""
         args = arg.split()
         if not args:
-            print(f"{Colors.FAIL}[!] Error: Debes You must specify a tool{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: You must specify a tool{Colors.ENDC}")
             return
         self.execute_pkg(args[0], 'update')
 
