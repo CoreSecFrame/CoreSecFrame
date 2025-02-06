@@ -726,3 +726,107 @@ class ToolModule(GetModule):
         finally:
             # No cleanup here - we want the session to persist until user closes it
             pass
+
+
+class PackageManager:
+    @staticmethod
+    def check_package_installed(package_name: str) -> bool:
+        """
+        Check if a package is installed using 'which' command
+        
+        Args:
+            package_name: Name of the package to check
+            
+        Returns:
+            bool: True if package is installed, False otherwise
+        """
+        try:
+            result = subprocess.run(['which', package_name], capture_output=True, text=True)
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    @staticmethod
+    def install_package(package_name: str) -> bool:
+        """
+        Install a package using apt
+        
+        Args:
+            package_name: Name of the package to install
+            
+        Returns:
+            bool: True if installation was successful, False otherwise
+        """
+        try:
+            print(f"\n{Colors.CYAN}[*] Installing {package_name}...{Colors.ENDC}")
+            result = subprocess.run(['sudo', 'apt', 'install', '-y', package_name], 
+                                 capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"{Colors.SUCCESS}[✓] Installation successful{Colors.ENDC}")
+                return True
+            else:
+                print(f"{Colors.FAIL}[!] Installation failed: {result.stderr}{Colors.ENDC}")
+                return False
+        except Exception as e:
+            print(f"{Colors.FAIL}[!] Error during installation: {str(e)}{Colors.ENDC}")
+            return False
+
+    def help_status(self):
+        """Provides help information for the status command"""
+        print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}System Monitor{Colors.PRIMARY}                                            ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}
+              
+{Colors.BOLD}USAGE:{Colors.ENDC}
+  status
+
+{Colors.BOLD}DESCRIPTION:{Colors.ENDC}
+  Opens btop system monitor in a tmux session. btop is a resource monitor that
+  shows usage and stats for processor, memory, disks, network and processes.
+
+{Colors.BOLD}FEATURES:{Colors.ENDC}
+  • Real-time system monitoring
+  • Process management
+  • Resource usage graphs
+  • Session persistence
+  • Automatic installation if not present
+
+{Colors.BOLD}CONTROLS:{Colors.ENDC}
+  • Q            - Quit btop
+  • Ctrl+b d     - Detach from session (return to framework)
+  • M            - Show memory stats
+  • P            - Show CPU stats
+  • N            - Show network stats
+  • Esc          - Go back/exit menus''')
+        print(f"\n")
+
+    def help_files(self):
+        """Provides help information for the files command"""
+        print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}File Finder{Colors.PRIMARY}                                              ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}
+              
+{Colors.BOLD}USAGE:{Colors.ENDC}
+  files
+
+{Colors.BOLD}DESCRIPTION:{Colors.ENDC}
+  Opens fzf (fuzzy finder) in a tmux session. fzf is an interactive finder that
+  makes it easy to search and navigate through files and directories.
+
+{Colors.BOLD}FEATURES:{Colors.ENDC}
+  • Fuzzy searching
+  • File preview
+  • Interactive navigation
+  • Session persistence
+  • Automatic installation if not present
+
+{Colors.BOLD}CONTROLS:{Colors.ENDC}
+  • Enter        - Select file
+  • Ctrl+c       - Exit fzf
+  • Ctrl+r       - Reload file list
+  • Ctrl+b d     - Detach from session (return to framework)
+  • ↑/↓          - Navigate through files
+  • /            - Start search''')
+        print(f"\n")

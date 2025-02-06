@@ -13,7 +13,7 @@ import platform
 from .terminal_management import TerminalManager
 from .sessions_manager import SessionManager
 from .colors import Colors
-from .base import ToolModule
+from .base import ToolModule, PackageManager
 
 
 class FrameworkInterface(cmd.Cmd):
@@ -59,27 +59,35 @@ class FrameworkInterface(cmd.Cmd):
 
     def handle_sigint(self, signum, frame):
         """Manejador personalizado para Ctrl+C"""
-        print("\n\n[!] Use 'exit' to close the framework")
+        print("\n\n[!] Use 'exit' to exit the framework")
         return
 
     def default(self, line: str) -> None:
         """Manejador de comandos desconocidos"""
-        print(f"{Colors.FAIL}[!] Unkown command: {line}{Colors.ENDC}")
-        print(f"{Colors.CYAN}[*] Use 'help' to see avaiable commands{Colors.ENDC}")
+        print(f"{Colors.FAIL}[!] Unknown command: {line}{Colors.ENDC}")
+        print(f"{Colors.CYAN}[*] Use 'help' to see available commands{Colors.ENDC}")
         
     def emptyline(self) -> bool:
         """No hacer nada cuando se presiona Enter sin comando"""
         return False
 
-    # Comandos del framework
     def do_exit(self, arg: str) -> bool:
-        """Salir del framework"""
+        """Exit the framework"""
         if self.session_manager.sessions:
-            print(f"\n{Colors.WARNING}[!] There are active sessions. Do you want to exit and kill them? (y/N){Colors.ENDC}")
+            print(f"\n{Colors.WARNING}[!] There are active sessions. You need to close them before exiting. Do it now? (y/N){Colors.ENDC}")
             if input().lower() != 'y':
+                print(f"\n{Colors.CYAN}[*] Returning to framework...{Colors.ENDC}")
                 return False
                 
-        self.session_manager.kill_all_sessions()
+            # Call kill_all_sessions and handle its return
+            self.session_manager.kill_all_sessions()
+            # If there are still sessions (user cancelled killing), return to framework
+            if self.session_manager.sessions:
+                return False
+                
+            print(f"\n{Colors.SUBTLE}[*] Should we fear hackers? Intention is at the heart of this discussion.{Colors.ENDC}")
+            return True
+            
         print(f"\n{Colors.SUBTLE}[*] Should we fear hackers? Intention is at the heart of this discussion.{Colors.ENDC}")
         return True
 
@@ -95,7 +103,7 @@ class FrameworkInterface(cmd.Cmd):
         """Actualiza una herramienta"""
         args = arg.split()
         if not args:
-            print(f"{Colors.FAIL}[!] Error: You must specify a tool{Colors.ENDC}")
+            print(f"{Colors.FAIL}[!] Error: Debes You must specify a tool{Colors.ENDC}")
             return
         self.execute_pkg(args[0], 'update')
 
@@ -903,6 +911,181 @@ class FrameworkInterface(cmd.Cmd):
             return
 
         from .shop import ModuleShop
-        repo_url = "https://github.com/yourusername/yourrepo"  # Default repo
+        repo_url = "https://github.com/CoreSecFrame/CoreSecFrame-Modules"  # Default repo
         shop = ModuleShop(repo_url, self)
         shop.download_module(arg)
+
+
+
+    def do_status(self, arg: str) -> None:
+        """
+        Opens btop system monitor in a tmux session
+        Usage: status
+        """
+        if not PackageManager.check_package_installed('btop'):
+            print(f"\n{Colors.WARNING}[!] btop is not installed. Would you like to install it? (y/N){Colors.ENDC}")
+            if input().lower() != 'y':
+                return
+            
+            if not PackageManager.install_package('btop'):
+                return
+
+        # Generate unique session name
+        session_id = len(self.session_manager.sessions) + 1
+        session_name = f"status_{session_id}"
+        
+        print(f"\n{Colors.CYAN}[*] Opening btop system monitor...{Colors.ENDC}")
+        
+        # Create and initialize session
+        session = self.session_manager.create_session(session_name, None)
+        session.start_logging()
+        
+        try:
+            print(f"\n{Colors.CYAN}[*] Starting btop...{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] Press Q to quit btop{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] Use {Colors.BOLD}Ctrl+b d{Colors.ENDC}{Colors.CYAN} to detach and return to framework{Colors.ENDC}")
+            
+            cmd = f"TERM=xterm-256color btop"
+            
+            success = TerminalManager.run_in_tmux(
+                cmd,
+                session.name,
+                "System Monitor"
+            )
+            
+            if success:
+                print(f"\n{Colors.GREEN}[✓] You have returned to the framework{Colors.ENDC}")
+                print(f"{Colors.CYAN}[*] To reconnect use: {Colors.BOLD}sessions use {session.session_id}{Colors.ENDC}")
+                session.add_to_history("System monitor session started")
+            else:
+                print(f"{Colors.FAIL}[!] Error creating btop session{Colors.ENDC}")
+                session.active = False
+                
+        except Exception as e:
+            print(f"{Colors.FAIL}[!] Error opening btop: {e}{Colors.ENDC}")
+            session.active = False
+            session.log(f"Error: {str(e)}")
+        finally:
+            if not session.active:
+                session.stop_logging()
+                session.kill_terminal()
+                del self.session_manager.sessions[int(session.session_id)]
+
+    def do_files(self, arg: str) -> None:
+        """
+        Opens fzf file finder in a tmux session
+        Usage: files
+        """
+        if not PackageManager.check_package_installed('fzf'):
+            print(f"\n{Colors.WARNING}[!] fzf is not installed. Would you like to install it? (y/N){Colors.ENDC}")
+            if input().lower() != 'y':
+                return
+            
+            if not PackageManager.install_package('fzf'):
+                return
+
+        # Generate unique session name
+        session_id = len(self.session_manager.sessions) + 1
+        session_name = f"files_{session_id}"
+        
+        print(f"\n{Colors.CYAN}[*] Opening file finder...{Colors.ENDC}")
+        
+        # Create and initialize session
+        session = self.session_manager.create_session(session_name, None)
+        session.start_logging()
+        
+        try:
+            print(f"\n{Colors.CYAN}[*] Starting fzf...{Colors.ENDC}")
+            print(f"{Colors.CYAN}[*] Basic fzf commands:{Colors.ENDC}")
+            print(f" • {Colors.BOLD}Enter{Colors.ENDC}     - Select file")
+            print(f" • {Colors.BOLD}Ctrl+c{Colors.ENDC}    - Exit fzf")
+            print(f" • {Colors.BOLD}Ctrl+r{Colors.ENDC}    - Reload")
+            print(f" • {Colors.BOLD}Ctrl+b d{Colors.ENDC}  - Return to framework")
+            
+            # Command to show hidden files and execute in current directory
+            cmd = f"cd {Path.home()} && TERM=xterm-256color find . -type f 2>/dev/null | fzf --preview 'cat {{}}'"
+            
+            success = TerminalManager.run_in_tmux(
+                cmd,
+                session.name,
+                "File Finder"
+            )
+            
+            if success:
+                print(f"\n{Colors.GREEN}[✓] You have returned to the framework{Colors.ENDC}")
+                print(f"{Colors.CYAN}[*] To reconnect use: {Colors.BOLD}sessions use {session.session_id}{Colors.ENDC}")
+                session.add_to_history("File finder session started")
+            else:
+                print(f"{Colors.FAIL}[!] Error creating fzf session{Colors.ENDC}")
+                session.active = False
+                
+        except Exception as e:
+            print(f"{Colors.FAIL}[!] Error opening fzf: {e}{Colors.ENDC}")
+            session.active = False
+            session.log(f"Error: {str(e)}")
+        finally:
+            if not session.active:
+                session.stop_logging()
+                session.kill_terminal()
+                del self.session_manager.sessions[int(session.session_id)]
+
+
+    def help_status(self):
+        """Provides help information for the status command"""
+        print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}System Monitor{Colors.PRIMARY}                                            ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}
+              
+{Colors.BOLD}USAGE:{Colors.ENDC}
+  status
+
+{Colors.BOLD}DESCRIPTION:{Colors.ENDC}
+  Opens btop system monitor in a tmux session. btop is a resource monitor that
+  shows usage and stats for processor, memory, disks, network and processes.
+
+{Colors.BOLD}FEATURES:{Colors.ENDC}
+  • Real-time system monitoring
+  • Process management
+  • Resource usage graphs
+  • Session persistence
+  • Automatic installation if not present
+
+{Colors.BOLD}CONTROLS:{Colors.ENDC}
+  • Q            - Quit btop
+  • Ctrl+b d     - Detach from session (return to framework)
+  • M            - Show memory stats
+  • P            - Show CPU stats
+  • N            - Show network stats
+  • Esc          - Go back/exit menus''')
+        print(f"\n")
+
+    def help_files(self):
+        """Provides help information for the files command"""
+        print(f'''
+{Colors.PRIMARY}╔════════════════════════════════════════════════════════════╗
+║  {Colors.SECONDARY}File Finder{Colors.PRIMARY}                                              ║
+╚════════════════════════════════════════════════════════════╝{Colors.ENDC}
+              
+{Colors.BOLD}USAGE:{Colors.ENDC}
+  files
+
+{Colors.BOLD}DESCRIPTION:{Colors.ENDC}
+  Opens fzf (fuzzy finder) in a tmux session. fzf is an interactive finder that
+  makes it easy to search and navigate through files and directories.
+
+{Colors.BOLD}FEATURES:{Colors.ENDC}
+  • Fuzzy searching
+  • File preview
+  • Interactive navigation
+  • Session persistence
+  • Automatic installation if not present
+
+{Colors.BOLD}CONTROLS:{Colors.ENDC}
+  • Enter        - Select file
+  • Ctrl+c       - Exit fzf
+  • Ctrl+r       - Reload file list
+  • Ctrl+b d     - Detach from session (return to framework)
+  • ↑/↓          - Navigate through files
+  • /            - Start search''')
+        print(f"\n")
