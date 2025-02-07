@@ -130,6 +130,61 @@ class FrameworkInterface(cmd.Cmd):
         else:
             self._use_tool(args[0])
 
+    def _get_mode_selection(self) -> Optional[str]:
+        """
+        Gets user mode selection with proper error handling
+        
+        Returns:
+            Optional[str]: Selected mode ('1', '2') or None if cancelled
+        """
+        max_attempts = 3
+        attempt = 0
+        
+        # Store the original SIGINT handler
+        original_handler = signal.getsignal(signal.SIGINT)
+        
+        # Set up our temporary handler
+        def temp_handler(signum, frame):
+            # Restore original handler immediately
+            signal.signal(signal.SIGINT, original_handler)
+            # Clear line and raise KeyboardInterrupt to handle it in the try/except
+            print('\r', end='')
+            raise KeyboardInterrupt
+        
+        try:
+            # Set our temporary handler
+            signal.signal(signal.SIGINT, temp_handler)
+            
+            while attempt < max_attempts:
+                try:
+                    mode = input(f"\n{Colors.BOLD}Choose mode (1/2/0): {Colors.ENDC}").strip()
+                    
+                    if mode in ('1', '2', '0'):
+                        if mode == '0':
+                            print(f"\n{Colors.CYAN}[*] Operation cancelled by user{Colors.ENDC}")
+                            return None
+                        return mode
+                        
+                    print(f"{Colors.FAIL}[!] Invalid option. Please select 1 for Guided mode, 2 for Direct mode, or 0 to cancel{Colors.ENDC}")
+                    attempt += 1
+                    
+                except KeyboardInterrupt:
+                    # Clear screen and return to framework interface
+                    TerminalManager.clear_screen()
+                    print(self.intro)
+                    return None
+                except EOFError:
+                    print(f"\n{Colors.CYAN}[*] Input terminated (Ctrl+D){Colors.ENDC}")
+                    return None
+                    
+            print(f"\n{Colors.WARNING}[!] Maximum attempts reached. Cancelling operation{Colors.ENDC}")
+            return None
+            
+        finally:
+            # Restore the original handler no matter what
+            signal.signal(signal.SIGINT, original_handler)
+
+
     def _use_tool(self, tool_name: str) -> None:
         """Method to execute a tool"""
         module = self.modules.get(tool_name.lower())
@@ -149,17 +204,9 @@ class FrameworkInterface(cmd.Cmd):
         print(f"{Colors.GREEN}2:{Colors.ENDC} Direct mode")
         print(f"{Colors.GREEN}0:{Colors.ENDC} Cancel")
         
-        while True:
-            try:
-                mode = input(f"\n{Colors.BOLD}Choose mode (1/2/0): {Colors.ENDC}").strip()
-                if mode in ('1', '2', '0'):
-                    break
-                print(f"{Colors.FAIL}[!] Invalid option{Colors.ENDC}")
-            except KeyboardInterrupt:
-                print("\n")
-                return
-
-        if mode == "0":
+        # Get mode selection with proper error handling
+        mode = self._get_mode_selection()
+        if not mode:
             return
 
         # Create and initialize session
