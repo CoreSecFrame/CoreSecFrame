@@ -91,16 +91,14 @@ def setup_environment():
     return True
     
 def main():
-    """Punto de entrada principal del framework"""
-    # Limpiar terminal antes de iniciar
+    """Main entry point for the framework"""
     from core.terminal_management import TerminalManager
-    TerminalManager.clear_screen()
     
-    # Verificar privilegios de root
+    # Verify root privileges
     if not get_sudo_permission():
         sys.exit(1)
 
-    # Configurar el entorno
+    # Configure environment
     if not setup_environment():
         sys.exit(1)
     
@@ -108,18 +106,52 @@ def main():
         from core.framework_interface import FrameworkInterface
         from core.base import ToolModule
         
-        # Verificar y cargar módulos con la bandera initial_load=True
+        # Check module compatibility before loading
+        compatibility_status = ToolModule.check_module_compatibility()
+        
+        # Display compatibility results
+        if compatibility_status['Compatible']:
+            print(f"\n{Colors.GREEN}[✓] Compatible modules:{Colors.ENDC}")
+            for module in compatibility_status['Compatible']:
+                print(f"{Colors.CYAN}  ├─ {module}{Colors.ENDC}")
+                
+        if compatibility_status['Incompatible']:
+            print(f"\n{Colors.WARNING}[!] Incompatible modules detected:{Colors.ENDC}")
+            for module in compatibility_status['Incompatible']:
+                print(f"{Colors.FAIL}  ├─ {module['name']}: {module['reason']}{Colors.ENDC}")
+        
+        # Verify and load modules with initial_load=True
         try:
+            if compatibility_status['Incompatible']:
+                print(f"\n{Colors.CYAN}[*] Press Enter to continue...{Colors.ENDC}")
+                input()
+
             modules = ToolModule.load_modules(initial_load=True)
             if not modules:
                 print(f"\n{Colors.WARNING}[!] No modules are currently loaded{Colors.ENDC}")
                 print(f"{Colors.CYAN}[*] You can use the 'shop' command to download modules{Colors.ENDC}")
+                print(f"\n{Colors.CYAN}[*] Press Enter to continue...{Colors.ENDC}")
+                input()
+                
+                if input(f"\n{Colors.WARNING}Continue without modules? (y/N): {Colors.ENDC}").lower() != 'y':
+                    print(f"\n{Colors.FAIL}[!] Exiting due to no modules loaded{Colors.ENDC}")
+                    sys.exit(1)
+                    
         except Exception as e:
             print(f"{Colors.WARNING}[!] Error loading modules: {e}{Colors.ENDC}")
             print(f"{Colors.CYAN}[*] You can use the 'shop' command to download modules{Colors.ENDC}")
+            print(f"\n{Colors.CYAN}[*] Press Enter to continue...{Colors.ENDC}")
+            input()
             
+            if input(f"\n{Colors.WARNING}Continue anyway? (y/N): {Colors.ENDC}").lower() != 'y':
+                print(f"\n{Colors.FAIL}[!] Exiting due to module loading errors{Colors.ENDC}")
+                sys.exit(1)
+        
+        # Clear screen only after user has seen all messages and decided to continue
+        TerminalManager.clear_screen()
         framework = FrameworkInterface()
         framework.cmdloop()
+        
     except KeyboardInterrupt:
         print(f"\n{Colors.WARNING}[!] Exiting the framework...{Colors.ENDC}")
         sys.exit(0)

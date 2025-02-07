@@ -183,14 +183,10 @@ class ToolModule(GetModule):
     @classmethod
     def check_module_compatibility(cls) -> dict:
         """
-        Verifica la compatibilidad de todos los módulos cargados.
+        Verifies compatibility of all loaded modules including those in subdirectories.
         
         Returns:
-            dict: Diccionario con el estado de compatibilidad de los módulos
-            {
-                'compatible': [lista de módulos compatibles],
-                'incompatible': [lista de módulos incompatibles con sus razones]
-            }
+            dict: Dictionary with modules compatibility status
         """
         compatibility_status = {
             'Compatible': [],
@@ -201,96 +197,132 @@ class ToolModule(GetModule):
         
         if not modules_dir.exists():
             return compatibility_status
+
+        # List of required methods and their expected return types
+        required_methods = [
+            ('_get_name', str),
+            ('_get_category', str),
+            ('_get_command', str),
+            ('_get_description', str),
+            ('_get_dependencies', list),
+            ('get_help', dict),
+            ('_get_update_command', (str, list)),
+            ('_get_install_command', (str, list)),
+            ('_get_uninstall_command', (str, list)),
+            ('_get_script_path', str),
+            ('run_guided', type(None)),
+            ('run_direct', type(None))
+        ]
             
-        for module_info in pkgutil.iter_modules([str(modules_dir)]):
-            if module_info.name.startswith('_'):
-                continue
+        def check_directory(directory: Path):
+            """Recursively check modules in directory and subdirectories"""
+            if not directory.is_dir():
+                return
                 
-            try:
-                # Intentar importar el módulo
-                module = importlib.import_module(f'modules.{module_info.name}')
-                module_class = None
-                
-                # Buscar la clase que hereda de ToolModule
-                for attr_name in dir(module):
-                    attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and
-                        issubclass(attr, ToolModule) and
-                        attr != ToolModule):
-                        module_class = attr
-                        break
-                
-                if not module_class:
-                    compatibility_status['Incompatible'].append({
-                        'name': module_info.name,
-                        'reason': 'No class found that inherits from ToolModule'
-                    })
+            # Check Python files in current directory
+            for file_path in directory.glob("*.py"):
+                if file_path.name == "__init__.py":
                     continue
                     
-                # Verificar métodos abstractos requeridos
-                missing_methods = []
-                required_methods = [
-                    '_get_name',
-                    '_get_category',
-                    '_get_command',
-                    '_get_description',
-                    '_get_dependencies',
-                    'get_help',
-                    '_get_update_command',
-                    '_get_install_command',
-                    '_get_uninstall_command',
-                    '_get_script_path',
-                    'run_guided',
-                    'run_direct'
-                ]
-                
-                for method in required_methods:
-                    if not hasattr(module_class, method) or \
-                    not callable(getattr(module_class, method)):
-                        missing_methods.append(method)
-                
-                if missing_methods:
-                    compatibility_status['Incompatible'].append({
-                        'name': module_info.name,
-                        'reason': f'Missing the following required methods: {", ".join(missing_methods)}'
-                    })
-                    continue
-                    
-                # Verificar que los métodos devuelven los tipos correctos
                 try:
-                    instance = module_class()
+                    # Get relative module path
+                    rel_path = file_path.relative_to(modules_dir.parent)
+                    import_path = str(rel_path.with_suffix('')).replace(os.sep, '.')
                     
-                    # Verificar tipos de retorno
-                    if not isinstance(instance._get_name(), str):
-                        raise TypeError('_get_name debe devolver str')
-                    if not isinstance(instance._get_command(), str):
-                        raise TypeError('_get_command debe devolver str')
-                    if not isinstance(instance._get_description(), str):
-                        raise TypeError('_get_description debe devolver str')
-                    if not isinstance(instance._get_dependencies(), list):
-                        raise TypeError('_get_dependencies debe devolver list')
-                    if not isinstance(instance.get_help(), dict):
-                        raise TypeError('get_help debe devolver dict')
+                    # Import module
+                    spec = importlib.util.spec_from_file_location(import_path, str(file_path))
+                    if not spec:
+                        raise ImportError("Could not create module spec")
+                    
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[import_path] = module
+                    spec.loader.exec_module(module)
+                    
+                    # Look for ToolModule class
+                    found_tool_class = False
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if (isinstance(attr, type) and 
+                            issubclass(attr, cls) and 
+                            attr != cls):
+                            found_tool_class = True
+                            
+                            try:
+                                # Check required methods
+                                missing_methods = []
+                                wrong_types = []
+                                
+                                # Create instance for method testing
+                                instance = attr()
+                                
+                                # Verify each required method
+                                for method_name, expected_type in required_methods:
+                                    if not hasattr(instance, method_name):
+                                        missing_methods.append(method_name)
+                                        continue
+                                        
+                                    method = getattr(instance, method_name)
+                                    if not callable(method):
+                                        missing_methods.append(method_name)
+                                        continue
+                                    
+                                    # Check return type if method is not run_guided or run_direct
+                                    if method_name not in ['run_guided', 'run_direct']:
+                                        try:
+                                            # Special handling for command methods that need pkg_manager argument
+                                            if method_name in ['_get_update_command', '_get_install_command', '_get_uninstall_command']:
+                                                result = method('apt')  # Use 'apt' as a test value
+                                            else:
+                                                result = method()
+                                                
+                                            if isinstance(expected_type, tuple):
+                                                if not isinstance(result, expected_type[0]) and not isinstance(result, expected_type[1]):
+                                                    wrong_types.append(f"{method_name} (expected {expected_type}, got {type(result)})")
+                                            elif not isinstance(result, expected_type):
+                                                wrong_types.append(f"{method_name} (expected {expected_type.__name__}, got {type(result).__name__})")
+                                        except Exception as e:
+                                            wrong_types.append(f"{method_name} (execution error: {str(e)})")
+                                
+                                if missing_methods or wrong_types:
+                                    error_msg = []
+                                    if missing_methods:
+                                        error_msg.append(f"Missing methods: {', '.join(missing_methods)}")
+                                    if wrong_types:
+                                        error_msg.append(f"Type errors: {', '.join(wrong_types)}")
+                                    compatibility_status['Incompatible'].append({
+                                        'name': file_path.stem,
+                                        'reason': '; '.join(error_msg)
+                                    })
+                                else:
+                                    compatibility_status['Compatible'].append(instance._get_name())
+                                    
+                            except Exception as e:
+                                compatibility_status['Incompatible'].append({
+                                    'name': file_path.stem,
+                                    'reason': f'Instantiation error: {str(e)}'
+                                })
+                            break
+                    
+                    if not found_tool_class:
+                        compatibility_status['Incompatible'].append({
+                            'name': file_path.stem,
+                            'reason': 'No class found that inherits from ToolModule'
+                        })
                         
-                    compatibility_status['Compatible'].append(module_info.name)
-                    
                 except Exception as e:
                     compatibility_status['Incompatible'].append({
-                        'name': module_info.name,
-                        'reason': f'Error instantiating or verifying types: {str(e)}'
+                        'name': file_path.stem,
+                        'reason': f'Import error: {str(e)}'
                     })
-                    
-            except ImportError as e:
-                compatibility_status['Incompatible'].append({
-                    'name': module_info.name,
-                    'reason': f'Error importing module: {str(e)}'
-                })
-            except Exception as e:
-                compatibility_status['Incompatible'].append({
-                    'name': module_info.name,
-                    'reason': f'Unexpected error: {str(e)}'
-                })
-                
+            
+            # Recursively check subdirectories
+            for subdir in directory.iterdir():
+                if subdir.is_dir() and not subdir.name.startswith('_'):
+                    check_directory(subdir)
+        
+        # Start recursive check from modules directory
+        check_directory(modules_dir)
+        
         return compatibility_status
 
 

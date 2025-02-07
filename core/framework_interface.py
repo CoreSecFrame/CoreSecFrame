@@ -444,12 +444,50 @@ class FrameworkInterface(cmd.Cmd):
             return [opt for opt in options if opt.startswith(text)]
         return []
 
-    def complete_list(self, text, line, begidx, endidx):
-        """Autocompletado para el comando list"""
-        options = ['tools', 'sessions']
+    def complete_install(self, text, line, begidx, endidx):
+        """Tab completion for install command"""
+        # List of module names that aren't installed yet
+        available_modules = [name for name, module in self.modules.items() 
+                            if not module.installed]
         if not text:
-            return options
-        return [opt for opt in options if opt.startswith(text)]
+            return available_modules
+        return [mod for mod in available_modules 
+                if mod.startswith(text.lower())]
+
+    def complete_remove(self, text, line, begidx, endidx):
+        """Tab completion for remove command"""
+        # List of installed module names
+        installed_modules = [name for name, module in self.modules.items() 
+                            if module.installed]
+        if not text:
+            return installed_modules
+        return [mod for mod in installed_modules 
+                if mod.startswith(text.lower())]
+
+    def complete_update(self, text, line, begidx, endidx):
+        """Tab completion for update command"""
+        # List of installed module names (can only update installed modules)
+        installed_modules = [name for name, module in self.modules.items() 
+                            if module.installed]
+        if not text:
+            return installed_modules
+        return [mod for mod in installed_modules 
+                if mod.startswith(text.lower())]
+
+    def complete_download(self, text, line, begidx, endidx):
+        """Tab completion for download command"""
+        from .shop import ModuleShop
+        repo_url = "https://github.com/CoreSecFrame/CoreSecFrame-Modules"
+        shop = ModuleShop(repo_url, self)
+        
+        # Get all available remote modules that aren't downloaded
+        remote_modules = [name for name, module in shop.modules.items() 
+                        if not module.downloaded]
+        
+        if not text:
+            return remote_modules
+        return [mod for mod in remote_modules 
+                if mod.startswith(text.lower())]
 
     def _show_tmux_help(self):
         """Muestra ayuda sobre el uso de tmux"""
